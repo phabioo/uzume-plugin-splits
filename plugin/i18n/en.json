@@ -61,7 +61,6 @@
   "rule.addr": "Address, e.g. 0x02000000",
   "rule.value": "Value",
   "rule.badge": "Badge number (1 to 8)",
-  "rule.badge.needs_core": "Needs the Pokemon core interface. Without it the rule never fires.",
   "rule.zone": "Zone id",
   "rule.zone_now": "Use current zone",
   "rule.err.addr": "The address must be a whole number, decimal or 0x hex.",

@@ -42,7 +42,7 @@ A split has an optional rule, evaluated only for the current split of a running 
 
 - `memory`: address, size (`u8`, `u16`, `u32`), comparison (`=`, `!=`, `>`, `>=`, `<`, `<=`, `changed`), value. The range is watched with `fb.memory.watch("rule", ...)` and read on every tick. A condition that is already true when the split becomes current waits for the next change from false to true; `changed` fires when the value differs from the one seen at activation.
 - `location`: fires on the event `location.changed` of `uzume.soullink-core` when `zone` matches. The id comes from the game; names shown in the editor are only those the event carried in this session. "Use current zone" copies the last seen zone.
-- `badge`: polls `fb.call("pokemon.core", "badges")` every 15th tick for badge N (`flags[N]`, else `count >= N`), same rising-edge rule. See open points.
+- `badge`: fires on the event `badges.changed` `{ count, new }` of `uzume.soullink-core` (soullink-core 0.6.1 or later) when `new` contains N. No `fb.call`, so no `requires` is needed.
 
 ## Text format
 
@@ -60,7 +60,6 @@ When a run is open in the game (`fb.run.current()`), a new personal best posts t
 
 ## Open points
 
-- No `fb.call` without `requires`: `fb.call` only reaches plugins listed in `requires`, and this plugin has no hard dependency, so the `badge` rule only works if the app lets the call through. Otherwise it logs one warning and never fires. A manifest field for optional dependencies, or a `badge.obtained` event from soullink-core, would fix it. The `location` rule uses events and works.
 - The core's frame rate is not exposed (see above).
 - There is no shutdown hook: best segments of an attempt that is neither finished nor reset are lost when the game closes.
 - Memory rules need the game's addresses, which this repository does not ship; users enter them (or import a list).

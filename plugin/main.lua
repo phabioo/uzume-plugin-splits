@@ -28,8 +28,7 @@ local views = require("views")
 local App = {}
 App.__index = App
 
-local CORE_ID = "uzume.soullink-core" -- soft dependency: events by id, interface through fb.call when available
-local BADGE_POLL_TICKS = 15
+local CORE_ID = "uzume.soullink-core" -- soft dependency: global events by id (no `requires`, no fb.call)
 local PANEL_REFRESH_TICKS = 10
 
 -- Frame rate guesses per system (the API has no frame rate; the user can change it in the editor).
@@ -126,6 +125,7 @@ function App:start()
   fb.on_tick(function(frame) self:tick(frame) end)
   fb.ui.on_action(function(a, v, s) self:action(a, v, s) end)
   fb.events.on(CORE_ID, "location.changed", function(v) self:on_location(v) end)
+  fb.events.on(CORE_ID, "badges.changed", function(v) self:on_badges(v) end)
   fb.events.on("app", "store.changed", function(k)
     if k == self.key then
       self.stale = true
@@ -280,18 +280,17 @@ function App:on_location(v)
   end
 end
 
-function App:badge_cond(n)
-  local ok, res = pcall(self.fb.call, "pokemon.core", "badges")
-  if not ok then
-    if not self.core_warned then
-      self.core_warned = true
-      self.fb.log.warn("badge rule: pokemon.core not available: " .. tostring(res))
+function App:on_badges(v)
+  if type(v) ~= "table" or type(v.new) ~= "table" then return end
+  local rule = self:current_rule()
+  if not rule or rule.kind ~= "badge" then return end
+  for _, n in pairs(v.new) do
+    if n == rule.n then
+      self:do_split()
+      self:render_all()
+      return
     end
-    return nil
   end
-  if type(res) ~= "table" then return nil end
-  if type(res.flags) == "table" and res.flags[n] ~= nil then return res.flags[n] == true end
-  return type(res.count) == "number" and res.count >= n
 end
 
 function App:autosplit()
@@ -299,9 +298,6 @@ function App:autosplit()
   if not rule or not self.rule_state then return false end
   if rule.kind == "memory" then
     return rules.step_memory(self.fb, self.rule_state)
-  elseif rule.kind == "badge" and self.ticks % BADGE_POLL_TICKS == 0 then
-    local cond = self:badge_cond(rule.n)
-    if cond ~= nil then return rules.feed_cond(self.rule_state, cond) end
   end
   return false
 end
@@ -399,11 +395,9 @@ function App:editor_state()
     local name = zone and self.names_seen[zone]
     if name then hint = name end
   end
-  local core_available = false
-  if self.list then core_available = self.core_checked == true end
   return { list = self.list, tab = self.tab, locked = locked, draft = self.draft, import_text = self.import_text,
     import_error = self.import_error, export_text = self.list and textio.export(self.list) or "",
-    zone_hint = hint, core_available = core_available }
+    zone_hint = hint }
 end
 
 function App:render_screen()
@@ -537,7 +531,6 @@ end
 function H.rule_kind(self, v)
   if self.draft and (v == "none" or v == "memory" or v == "badge" or v == "location") then
     self.draft.kind, self.draft.error = v, nil
-    if v == "badge" then self.core_checked = pcall(self.fb.call, "pokemon.core", "badges") end
   end
 end
 local function draft_field(name)
@@ -1518,9 +1511,6 @@ local function rule_section(ed, T)
   elseif d.kind == "badge" then
     kids[#kids + 1] = { type = "textfield", id = "rule_badge", action = "rule_badge", text = d.badge or "",
       placeholder = T("rule.badge") }
-    if not ed.core_available then
-      kids[#kids + 1] = text({ text = T("rule.badge.needs_core"), style = "meta", tone = "warning" })
-    end
   elseif d.kind == "location" then
     kids[#kids + 1] = { type = "textfield", id = "rule_zone", action = "rule_zone", text = d.zone or "",
       placeholder = T("rule.zone") }
