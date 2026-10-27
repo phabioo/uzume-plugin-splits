@@ -63,21 +63,37 @@ end
 
 -- in_screen: the screen has its own "Edit" tab, so it does not repeat the button that opens the editor.
 local function controls(vm, T, in_screen)
+  local state = vm.state
+  local no_list = #vm.rows == 0
+  -- Which actions make no sense right now. `disabled` is only emitted when true; the controller drops it again
+  -- for apps older than Uzume 0.22 (see App:set_if_changed).
+  local off = {
+    split = no_list or state == "paused" or state == "finished",
+    undo = no_list or state == "idle" or state == "finished",
+    skip = no_list or state == "idle" or state == "paused" or state == "finished",
+    pause = no_list or state == "idle" or state == "finished",
+    reset = no_list or state == "idle",
+  }
+  local function button(label, action, variant)
+    local b = { type = "button", label = label, action = action, variant = variant }
+    if off[action] then b.disabled = true end
+    return b
+  end
   local primary
-  if vm.state == "idle" then
-    primary = { type = "button", label = T("btn.start"), action = "split", variant = "primary" }
-  elseif vm.state == "running" then
-    primary = { type = "button", label = T("btn.split"), action = "split", variant = "primary" }
+  if state == "idle" then
+    primary = button(T("btn.start"), "split", "primary")
+  elseif state == "running" then
+    primary = button(T("btn.split"), "split", "primary")
   else
-    primary = { type = "button", label = T("btn.split"), action = "split", variant = "secondary" }
+    primary = button(T("btn.split"), "split", "secondary")
   end
   local kids = {
     primary,
-    { type = "button", label = T("btn.undo"), action = "undo", variant = "secondary" },
-    { type = "button", label = T("btn.skip"), action = "skip", variant = "secondary" },
-    { type = "button", label = (vm.state == "paused" and T("btn.resume") or T("btn.pause")), action = "pause", variant = "secondary" },
+    button(T("btn.undo"), "undo", "secondary"),
+    button(T("btn.skip"), "skip", "secondary"),
+    button((state == "paused" and T("btn.resume") or T("btn.pause")), "pause", "secondary"),
     -- Reset throws the current attempt away: marked as destructive (no dialog, it is also a hotkey).
-    { type = "button", label = T("btn.reset"), action = "reset", variant = "danger" },
+    button(T("btn.reset"), "reset", "danger"),
   }
   if not in_screen then kids[#kids + 1] = { type = "button", label = T("btn.edit"), action = "open", variant = "quiet" } end
   return { type = "grid", gap = 8, columns = 3, children = kids }

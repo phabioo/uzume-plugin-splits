@@ -294,6 +294,7 @@ function M.new(opts)
     return slot == "panel" or slot == "hud" or slot == "screen" or slot == "detail" or slot == "run"
       or slot:match("^tile:[%w_.%-]+$") ~= nil
   end
+  ui_validator.legacy = opts.legacy_ui or false -- true: the fake app rejects `disabled` like an app before 0.22
   fb.ui = {
     set = function(slot, tree)
       if not declared(slot) then error("slot " .. tostring(slot) .. " not declared in manifest", 2) end
