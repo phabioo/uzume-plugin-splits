@@ -61,7 +61,8 @@ end
 
 -- Panel --------------------------------------------------------------------------------------------------
 
-local function controls(vm, T)
+-- in_screen: the screen has its own "Edit" tab, so it does not repeat the button that opens the editor.
+local function controls(vm, T, in_screen)
   local primary
   if vm.state == "idle" then
     primary = { type = "button", label = T("btn.start"), action = "split", variant = "primary" }
@@ -70,14 +71,16 @@ local function controls(vm, T)
   else
     primary = { type = "button", label = T("btn.split"), action = "split", variant = "secondary" }
   end
-  return { type = "grid", gap = 8, columns = 3, children = {
+  local kids = {
     primary,
     { type = "button", label = T("btn.undo"), action = "undo", variant = "secondary" },
     { type = "button", label = T("btn.skip"), action = "skip", variant = "secondary" },
     { type = "button", label = (vm.state == "paused" and T("btn.resume") or T("btn.pause")), action = "pause", variant = "secondary" },
-    { type = "button", label = T("btn.reset"), action = "reset", variant = "quiet" },
-    { type = "button", label = T("btn.edit"), action = "open", variant = "quiet" },
-  } }
+    -- Reset throws the current attempt away: marked as destructive (no dialog, it is also a hotkey).
+    { type = "button", label = T("btn.reset"), action = "reset", variant = "danger" },
+  }
+  if not in_screen then kids[#kids + 1] = { type = "button", label = T("btn.edit"), action = "open", variant = "quiet" } end
+  return { type = "grid", gap = 8, columns = 3, children = kids }
 end
 
 function M.panel(vm, T)
@@ -132,7 +135,7 @@ local function run_page(vm, T)
       stat("st_pb", T("stat.pb"), vm.pb_total and fmt.time(vm.pb_total) or "-"),
       stat("st_sob", T("stat.sob"), vm.sob and fmt.time(vm.sob) or "-"),
     } },
-    controls(vm, T),
+    controls(vm, T, true),
   }
   if #rows == 0 then
     kids[#kids + 1] = { type = "empty", title = T("empty.no_splits.title"), text = T("empty.no_splits.text") }
