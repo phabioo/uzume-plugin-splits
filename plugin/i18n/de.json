@@ -61,7 +61,6 @@
   "rule.addr": "Adresse, z. B. 0x02000000",
   "rule.value": "Wert",
   "rule.badge": "Ordennummer (1 bis 8)",
-  "rule.badge.needs_core": "Braucht die Pokémon-Core-Schnittstelle. Ohne sie löst die Regel nie aus.",
   "rule.zone": "Zonen-ID",
   "rule.zone_now": "Aktuelle Zone übernehmen",
   "rule.err.addr": "Die Adresse muss eine ganze Zahl sein, dezimal oder 0x-hex.",

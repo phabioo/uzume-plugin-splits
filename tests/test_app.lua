@@ -195,30 +195,21 @@ t.case("location autosplit from the soullink-core event", function()
   t.eq(#app.att.results, 1)
 end)
 
-t.case("badge autosplit through pokemon.core, soft dependency", function()
+t.case("badge autosplit on the soullink-core event badges.changed", function()
   local list = H.list({ "A", "B" })
-  list.splits[1].rule = { kind = "badge", n = 1 }
+  list.splits[1].rule = { kind = "badge", n = 2 }
   local mock, app = H.boot({ store = { [H.KEY] = list } })
-  local flags = { false, false, false, false, false, false, false, false }
-  mock.set_provider("pokemon.core", { badges = function() return { count = 0, flags = flags } end })
   mock.hotkey("split")
   mock.tick(30, 2)
+  mock.fire_event("uzume.soullink-core", "badges.changed", { count = 1, new = { 1 } })
   t.eq(#app.att.results, 0)
-  flags[1] = true
-  mock.tick(30, 2)
+  mock.fire_event("someone.else", "badges.changed", { count = 2, new = { 2 } })
+  t.eq(#app.att.results, 0)
+  mock.fire_event("uzume.soullink-core", "badges.changed", { count = 2, new = { 2 } })
   t.eq(#app.att.results, 1)
-end)
-
-t.case("badge rule without the interface never fires and warns once", function()
-  local list = H.list({ "A", "B" })
-  list.splits[1].rule = { kind = "badge", n = 1 }
-  local mock, app = H.boot({ store = { [H.KEY] = list } })
-  mock.hotkey("split")
-  mock.tick(60, 2)
-  t.eq(#app.att.results, 0)
   local warns = 0
-  for _, l in ipairs(mock.logs) do if l.level == "warn" and l.text:find("pokemon.core") then warns = warns + 1 end end
-  t.eq(warns, 1)
+  for _, l in ipairs(mock.logs) do if l.level == "warn" then warns = warns + 1 end end
+  t.eq(warns, 0)
 end)
 
 t.case("splits are stored per game and survive a restart", function()

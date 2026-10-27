@@ -187,9 +187,6 @@ local function rule_section(ed, T)
   elseif d.kind == "badge" then
     kids[#kids + 1] = { type = "textfield", id = "rule_badge", action = "rule_badge", text = d.badge or "",
       placeholder = T("rule.badge") }
-    if not ed.core_available then
-      kids[#kids + 1] = text({ text = T("rule.badge.needs_core"), style = "meta", tone = "warning" })
-    end
   elseif d.kind == "location" then
     kids[#kids + 1] = { type = "textfield", id = "rule_zone", action = "rule_zone", text = d.zone or "",
       placeholder = T("rule.zone") }

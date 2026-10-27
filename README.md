@@ -2,7 +2,7 @@
 
 A split timer for any game in Uzume: game time and real time, HUD widget, split lists per game with personal best and best segments, hotkeys and optional autosplit rules.
 
-Status: **v0.1.0** (timer, HUD, panel, editor, text import and export, hotkeys, memory and Pokémon autosplit rules, `splits.pb` run event).
+Status: **v0.1.1** (timer, HUD, panel, editor, text import and export, hotkeys, memory and Pokémon autosplit rules, `splits.pb` run event).
 
 For Uzume with plugin API v1 (since Uzume 0.11, store since 0.20). Part of [Uzume](https://github.com/phabioo/uzume); plugin API: [`docs/guides/plugin-api.md`](https://github.com/phabioo/uzume/blob/main/docs/guides/plugin-api.md) there. Layout and design: [docs/architecture.md](docs/architecture.md). Plan: [docs/roadmap.md](docs/roadmap.md).
 
