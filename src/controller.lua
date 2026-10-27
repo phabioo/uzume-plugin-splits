@@ -353,11 +353,33 @@ end
 
 -- Rendering -----------------------------------------------------------------------------------------------
 
+-- Remove every `disabled` prop (apps before Uzume 0.22 reject the unknown key).
+local function strip_disabled(b)
+  if type(b) ~= "table" then return end
+  b.disabled = nil
+  for _, c in ipairs(b.children or {}) do strip_disabled(c) end
+end
+
+-- `disabled` (Uzume 0.22) is emitted whenever an action makes no sense. The plugin API exposes no app version, so
+-- the first tree with `disabled` is tried as is; when the app raises because of that key, `disabled` is dropped
+-- for this and all later trees (the buttons then stay clickable and the actions ignore the call as before).
 function App:set_if_changed(slot, tree)
+  if self.no_disabled then strip_disabled(tree) end
   local key = util.ser(tree)
   if self.shown[slot] == key then return end
+  local ok, err = pcall(self.fb.ui.set, slot, tree)
+  if not ok then
+    if not self.no_disabled and tostring(err):find("disabled", 1, true) then
+      self.no_disabled = true
+      strip_disabled(tree)
+      key = util.ser(tree)
+      if self.shown[slot] == key then return end
+      self.fb.ui.set(slot, tree)
+    else
+      error(err, 0)
+    end
+  end
   self.shown[slot] = key
-  self.fb.ui.set(slot, tree)
 end
 
 function App:render_hud()

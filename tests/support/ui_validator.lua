@@ -84,12 +84,12 @@ local SPEC = {
                  if k ~= "title" and k ~= "text" and k ~= "confirm_label" and k ~= "danger" then return false end
                end
                return true
-             end, _req = { "label", "action" } },
+             end, disabled = bool, _req = { "label", "action" } },
   toggle = { action = action, label = text200, checked = bool, value = plain, disabled = bool, _req = { "action" } },
-  select = { options = list_of(option, 1, 100), selected = function(v) return v ~= nil end, action = action, _req = { "options", "action" } },
+  select = { options = list_of(option, 1, 100), selected = function(v) return v ~= nil end, action = action, disabled = bool, _req = { "options", "action" } },
   segmented = { options = list_of(option, 2, 3), selected = function(v) return v ~= nil end, action = action, _req = { "options", "action" } },
-  textfield = { action = action, text = text2000, placeholder = text200, error = text200, live = bool, _req = { "action" } },
-  textarea = { value = str(65536), lines = int_in(1, 40), mono = bool, placeholder = text200, error = text200, action = action },
+  textfield = { action = action, text = text2000, placeholder = text200, error = text200, live = bool, disabled = bool, _req = { "action" } },
+  textarea = { value = str(65536), lines = int_in(1, 40), mono = bool, placeholder = text200, error = text200, action = action, disabled = bool },
   empty = { title = text200, text = text2000, action_label = text200, action = action, tone = tone, _req = { "title" } },
   location = { title = text200, sub = text200, status = enum("open", "encounter", "caught", "missed", "none"), _req = { "title" } },
   map = { image = text200, image_w = int_in(1, 16384), image_h = int_in(1, 16384), players = plain, routes = plain,
@@ -116,6 +116,7 @@ local function check(b, path, depth)
   for k, v in pairs(b) do
     if k ~= "type" and k ~= "id" and k ~= "children" then
       local f = spec[k]
+      if V.legacy and k == "disabled" then f = nil end -- simulates an app before Uzume 0.22
       if k == "_req" or not f then return nil, path .. "." .. tostring(k) .. ": unknown prop for " .. b.type end
       if not f(v) then return nil, path .. "." .. k .. ": invalid value" end
     end

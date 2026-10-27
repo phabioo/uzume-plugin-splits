@@ -451,3 +451,75 @@ t.case("controls: reset is danger, the screen does not repeat Edit splits", func
   t.ok(panel.open ~= nil, "panel keeps the button that opens the editor")
   t.eq(screen.open, nil)
 end)
+
+-- Disabled controls ----------------------------------------------------------------------------------------
+
+local function buttons_of(tree, out)
+  out = out or {}
+  if type(tree) ~= "table" then return out end
+  if tree.type == "button" then out[tree.action] = tree end
+  for _, c in ipairs(tree.children or {}) do buttons_of(c, out) end
+  return out
+end
+
+-- Asserts which of split/undo/skip/pause/reset are disabled in the panel and in the screen.
+local function expect_disabled(mock, want, label, slots)
+  for _, slot in ipairs(slots or { "panel", "screen" }) do
+    local b = buttons_of(mock.ui.trees[slot])
+    for _, a in ipairs({ "split", "undo", "skip", "pause", "reset" }) do
+      t.eq(b[a].disabled == true, want[a] == true, label .. " / " .. slot .. " / " .. a)
+    end
+  end
+end
+
+t.case("disabled: no split list disables every control, empty state stays", function()
+  local mock = H.boot({})
+  expect_disabled(mock, { split = true, undo = true, skip = true, pause = true, reset = true }, "no list", { "screen" })
+  local texts = {}
+  local function walk(b)
+    if b.type == "empty" then texts[#texts + 1] = b.title end
+    for _, c in ipairs(b.children or {}) do walk(c) end
+  end
+  walk(mock.ui.trees.panel)
+  t.eq(#texts, 1, "empty state shown in the panel")
+  walk(mock.ui.trees.screen)
+  t.ok(#texts >= 2, "empty state shown in the screen")
+  t.ok(buttons_of(mock.ui.trees.panel).split == nil, "panel keeps only the empty state without a list")
+end)
+
+t.case("disabled: idle, running, paused, finished", function()
+  local mock, app = H.boot({ names = { "A", "B" } })
+  expect_disabled(mock, { undo = true, skip = true, pause = true, reset = true }, "idle")
+  mock.hotkey("split")
+  expect_disabled(mock, {}, "running")
+  mock.hotkey("pause")
+  t.eq(state(app), "paused")
+  expect_disabled(mock, { split = true, skip = true }, "paused")
+  mock.hotkey("pause")
+  mock.tick(5, 2)
+  mock.hotkey("split")
+  mock.hotkey("split")
+  t.eq(state(app), "finished")
+  expect_disabled(mock, { split = true, undo = true, skip = true, pause = true }, "finished")
+  mock.hotkey("reset")
+  expect_disabled(mock, { undo = true, skip = true, pause = true, reset = true }, "idle again")
+end)
+
+t.case("disabled: an app before 0.22 rejects the key, the plugin drops it and keeps working", function()
+  local mock, app = H.boot({ names = { "A", "B" }, legacy_ui = true })
+  t.ok(app.no_disabled, "fallback switched on")
+  for _, slot in ipairs({ "panel", "screen", "hud" }) do
+    t.ok(mock.ui.trees[slot] ~= nil, slot .. " rendered")
+  end
+  expect_disabled(mock, {}, "legacy idle")
+  mock.hotkey("split")
+  mock.hotkey("pause")
+  expect_disabled(mock, {}, "legacy paused")
+  t.eq(state(app), "paused")
+end)
+
+t.case("disabled: a modern app keeps the key and the fallback stays off", function()
+  local mock, app = H.boot({ names = { "A" } })
+  t.ok(not app.no_disabled)
+  t.eq(buttons_of(mock.ui.trees.screen).undo.disabled, true)
+end)
