@@ -442,3 +442,21 @@ t.case("every tree handed to the app validates (fb.ui.set checks them all)", fun
   mock.hotkey("split"); mock.hotkey("reset")
   t.ok(mock.ui.sets.hud > 3 and mock.ui.sets.panel > 3 and mock.ui.sets.screen > 3)
 end)
+
+-- Controls of the panel and of the screen: Reset is marked as destructive; the screen has an Edit tab, so it does not
+-- repeat the "Edit splits" button that the panel uses to open it.
+t.case("controls: reset is danger, the screen does not repeat Edit splits", function()
+  local mock = H.boot({ names = { "A", "B" } })
+  local function buttons(tree, out)
+    out = out or {}
+    if type(tree) ~= "table" then return out end
+    if tree.type == "button" then out[tree.action] = tree end
+    for _, c in ipairs(tree.children or {}) do buttons(c, out) end
+    return out
+  end
+  local panel, screen = buttons(mock.ui.trees.panel), buttons(mock.ui.trees.screen)
+  t.eq(panel.reset.variant, "danger")
+  t.eq(screen.reset.variant, "danger")
+  t.ok(panel.open ~= nil, "panel keeps the button that opens the editor")
+  t.eq(screen.open, nil)
+end)
