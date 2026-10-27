@@ -1,0 +1,25 @@
+{
+  "id": "uzume.splits",
+  "name": "Splits",
+  "version": "0.1.0",
+  "api": 1,
+  "type": "script",
+  "permissions": ["memory.read", "store", "ui", "run.state"],
+  "entry": "main.lua",
+  "recap": [
+    { "type": "splits.pb", "glyph": "note" }
+  ],
+  "ui": {
+    "panel": { "title": "Splits" },
+    "hud": true,
+    "screen": { "title": "Splits" },
+    "hotkeys": [
+      { "id": "split", "key": "Ctrl+Shift+Space", "label": "Start or split" },
+      { "id": "undo", "key": "Ctrl+Shift+Z", "label": "Undo split" },
+      { "id": "skip", "key": "Ctrl+Shift+K", "label": "Skip split" },
+      { "id": "reset", "key": "Ctrl+Shift+X", "label": "Reset timer" },
+      { "id": "pause", "key": "Ctrl+Shift+P", "label": "Pause or resume timer" },
+      { "id": "open", "key": "Ctrl+Shift+E", "label": "Open the split editor" }
+    ]
+  }
+}

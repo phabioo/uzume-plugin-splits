@@ -1,8 +1,8 @@
 # Notice
 
-uzume-plugin-template (plugin for Uzume)
+uzume-plugin-splits (plugin for Uzume)
 
-Copyright (C) 2026 Fabio and uzume-plugin-template contributors
+Copyright (C) 2026 Fabio and uzume-plugin-splits contributors
 
 SPDX-License-Identifier: GPL-3.0-or-later
 

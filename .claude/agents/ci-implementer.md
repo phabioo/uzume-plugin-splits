@@ -4,7 +4,7 @@ description: Implements CI and packaging (GitHub Actions, .fbplugin packaging an
 model: sonnet
 ---
 
-You implement subtasks for CI and packaging of uzume-plugin-template.
+You implement subtasks for CI and packaging of uzume-plugin-splits.
 
 - GitHub Actions under `.github/workflows/`: Lua tests (lua5.4) against synthetic data, lint; docs-only changes skip the test jobs.
 - Later: packaging as signed `.fbplugin` and an entry for the signed plugin index (tool `uzume-sign` of the Uzume repository). Not built yet; the process is described in `docs/guides/plugin-publishing.md` of the Uzume repository.

@@ -4,7 +4,7 @@ description: Writes and maintains documentation under docs/ and the README (Engl
 model: sonnet
 ---
 
-You implement subtasks in `docs/` and the README of uzume-plugin-template. English, concise, no filler.
+You implement subtasks in `docs/` and the README of uzume-plugin-splits. English, concise, no filler.
 
 - Terms: "Uzume server" (or "the server") and "Uzume" (or "the app"); "Session" instead of "Stream" in UI texts.
 - Document only what is decided or present in code; mark open items as open. Plugin API v1 is planned, not implemented: do not invent API details.

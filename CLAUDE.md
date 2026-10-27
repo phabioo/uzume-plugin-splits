@@ -2,12 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-uzume-plugin-template is the starting point for new Uzume plugins: a minimal example plugin skeleton (`manifest.json`, `main.lua`, `i18n/`, `assets/`) with tests against synthetic data and a CI and packaging setup, planned together with plugin API v1.
+uzume-plugin-splits is the Splits plugin (`uzume.splits`): a split timer for any game with game time and real time, a HUD widget, split lists per game in the plugin store (personal best, best segments), hotkeys, optional autosplit rules (memory conditions; badge and location events through the Pokémon core interface) and a `splits.pb` run event.
 
 ## Relation to Uzume
 
 - Plugin for [Uzume](https://github.com/phabioo/uzume) (self-hosted retro gaming platform). Interface: `docs/architecture/12-plugins.md` and `docs/guides/plugin-api.md` in the Uzume repository.
-- Plugin API v1 ships with Uzume since 0.11 (`docs/guides/plugin-api.md` there); this repository has no code yet. Open API items are marked open, never invented.
+- Plugin API v1 ships with Uzume since 0.11 (`docs/guides/plugin-api.md` there); the store used here ships with Uzume 0.20. Open API items are marked open, never invented.
 - Runtime: Lua 5.4 in the Uzume sandbox; UI only as declarative building blocks (no QML).
 
 ## Working rules
@@ -32,7 +32,8 @@ uzume-plugin-template is the starting point for new Uzume plugins: a minimal exa
 
 ## Status and commands
 
-- Status: no code yet. Commands (test, lint, package) will be added here when they exist; list only commands that have been run.
+- Status: v0.1.0. Layout and design: `docs/architecture.md`.
+- Sources are modules in `src/`; the sandbox has no `require`, so `lua5.4 tools/bundle.lua` generates the committed single `plugin/main.lua` (list new modules in `src/modules.txt`; `--check` fails when stale). Tests: `lua5.4 tests/run.lua` (fake `fb` in `tests/support/fb_mock.lua`, helpers in `tests/support/harness.lua`). Package: `python3 -I tools/package.py [--out DIR] [--tag vX.Y.Z]` builds the unsigned `<id>-<version>.fbplugin` (`--verify FILE` validates). CI (`.github/workflows/ci.yml`) runs bundle check, tests, changelog tool tests and packaging; the manual `release.yml` (input `tag` = `vX.Y.Z`, must equal the manifest version) attaches the package to a GitHub release.
 - The SessionStart hook `.claude/hooks/session-start.sh` only prepares cloud sessions (installs `lua5.4` via apt if missing).
 
 ## Pointers
