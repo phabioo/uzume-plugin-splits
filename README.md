@@ -12,10 +12,10 @@ For Uzume with plugin API v1 (since Uzume 0.11, store since 0.20). Part of [Uzum
 lua5.4 tools/bundle.lua           # writes plugin/main.lua from src/ (committed)
 lua5.4 tools/bundle.lua --check   # fails when plugin/main.lua is stale
 lua5.4 tests/run.lua              # tests against a fake fb with synthetic data
-python3 -I tools/package.py       # builds dist/uzume.splits-<version>.fbplugin
+python3 -I tools/package.py       # builds dist/uzume.splits-<version>.uzplugin
 ```
 
-The folder `plugin/` is what you install or link in Uzume's developer mode. Releases: run the **Release** workflow with a tag `vX.Y.Z` that equals the manifest version; it attaches the `.fbplugin` to a GitHub release.
+The folder `plugin/` is what you install or link in Uzume's developer mode. Releases: run the **Release** workflow with a tag `vX.Y.Z` that equals the manifest version; it attaches the `.uzplugin` to a GitHub release.
 
 Every PR description needs a `## Changelog` section (see `.github/pull_request_template.md`); CI checks it with `tools/changelog.py`, and releases build their notes from these sections.
 
