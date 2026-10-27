@@ -1,0 +1,81 @@
+-- Autosplit rule evaluation for the current split. Pure except for the memory reads through `fb`.
+--
+-- A condition that is already true when a split becomes current does not fire; it fires on the next change
+-- from false to true. This keeps a flag that is still set from the previous split from splitting again.
+local model = require("model")
+
+local M = {}
+
+function M.compare(op, a, b)
+  if op == "=" then return a == b
+  elseif op == "!=" then return a ~= b
+  elseif op == ">" then return a > b
+  elseif op == ">=" then return a >= b
+  elseif op == "<" then return a < b
+  elseif op == "<=" then return a <= b
+  end
+  return false
+end
+
+--- Starts watching for `rule` (nil = no rule). Returns the evaluation state, or nil without a rule.
+function M.arm(fb, rule)
+  if not rule then
+    fb.memory.unwatch("rule")
+    return nil
+  end
+  if rule.kind == "memory" then
+    fb.memory.watch("rule", rule.addr, model.SIZES[rule.size])
+  else
+    fb.memory.unwatch("rule")
+  end
+  return { rule = rule }
+end
+
+function M.disarm(fb)
+  fb.memory.unwatch("rule")
+end
+
+--- Feeds a boolean condition; true exactly once, on the change from false to true after the baseline.
+function M.feed_cond(st, cond)
+  if st.base == nil then
+    st.base = cond
+    return false
+  end
+  local fired = cond and not st.base
+  st.base = cond
+  return fired
+end
+
+--- One evaluation step of a memory rule. Returns true when the split should fire.
+function M.step_memory(fb, st)
+  local rule = st.rule
+  local v = fb.memory[rule.size](rule.addr)
+  if v == nil then return false end
+  if rule.cmp == "changed" then
+    if st.prev == nil then
+      st.prev = v
+      return false
+    end
+    local changed = v ~= st.prev
+    st.prev = v
+    return changed
+  end
+  return M.feed_cond(st, M.compare(rule.cmp, v, rule.value))
+end
+
+--- Short human-readable summary of a rule (no names, only ids and numbers).
+function M.summary(rule)
+  if not rule then return nil end
+  if rule.kind == "memory" then
+    local s = string.format("0x%X %s %s", rule.addr, rule.size, rule.cmp)
+    if rule.cmp ~= "changed" then s = s .. " " .. rule.value end
+    return s
+  elseif rule.kind == "badge" then
+    return "badge " .. rule.n
+  elseif rule.kind == "location" then
+    return "zone " .. rule.zone
+  end
+  return nil
+end
+
+return M

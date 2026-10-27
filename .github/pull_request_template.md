@@ -20,5 +20,5 @@ Release notes are collected from this section; CI checks it.
 
 ## Checklist
 
-- [ ] I have read [CLA.md](https://github.com/phabioo/uzume-plugin-template/blob/main/CLA.md) and agree to its terms
+- [ ] I have read [CLA.md](https://github.com/phabioo/uzume-plugin-splits/blob/main/CLA.md) and agree to its terms
 - [ ] No ROMs, BIOS, firmware, keys, or extracted game assets/RAM dumps are added

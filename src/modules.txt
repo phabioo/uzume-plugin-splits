@@ -1,0 +1,10 @@
+# Modules bundled into plugin/main.lua (see tools/bundle.lua)
+controller
+fmt
+main
+model
+rules
+textio
+timer
+util
+views

@@ -4,7 +4,7 @@ description: Implements plugin code (Lua 5.4 against the Uzume plugin API, decla
 model: sonnet
 ---
 
-You implement subtasks of the plugin uzume-plugin-template. Rules: `CLAUDE.md`.
+You implement subtasks of the plugin uzume-plugin-splits. Rules: `CLAUDE.md`.
 
 - Lua 5.4 in the Uzume sandbox (no `io`, `os`, `package`, `load`, `debug`); use only the plugin API v1 as documented; do not invent API details, report open points.
 - UI only as declarative building blocks (no own QML). All user-visible strings via `i18n/` files: English source, German first translation.
