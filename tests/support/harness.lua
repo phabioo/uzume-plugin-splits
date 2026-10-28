@@ -1,5 +1,5 @@
--- Boots the plugin sources against the fake fb.
-local fb_mock = require("fb_mock")
+-- Boots the plugin sources against the fake uz.
+local uz_mock = require("uz_mock")
 local model = require("model")
 
 local H = {}
@@ -13,7 +13,7 @@ function H.list(names, timing)
   return l
 end
 
---- opts as fb_mock.new; opts.names seeds the store with a list of that many named splits.
+--- opts as uz_mock.new; opts.names seeds the store with a list of that many named splits.
 function H.boot(opts)
   opts = opts or {}
   opts.game = opts.game or H.GAME
@@ -22,9 +22,9 @@ function H.boot(opts)
     opts.store[H.KEY] = H.list(opts.names)
     opts.names = nil
   end
-  local mock = fb_mock.new(opts)
+  local mock = uz_mock.new(opts)
   local App = require("controller")
-  local app = App.new(mock.fb)
+  local app = App.new(mock.uz)
   app:start()
   mock.tick(1) -- first snapshot: gives the timer a frame reference
   return mock, app

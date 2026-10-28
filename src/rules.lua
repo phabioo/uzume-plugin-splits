@@ -1,4 +1,4 @@
--- Autosplit rule evaluation for the current split. Pure except for the memory reads through `fb`.
+-- Autosplit rule evaluation for the current split. Pure except for the memory reads through `uz`.
 --
 -- A condition that is already true when a split becomes current does not fire; it fires on the next change
 -- from false to true. This keeps a flag that is still set from the previous split from splitting again.
@@ -18,21 +18,21 @@ function M.compare(op, a, b)
 end
 
 --- Starts watching for `rule` (nil = no rule). Returns the evaluation state, or nil without a rule.
-function M.arm(fb, rule)
+function M.arm(uz, rule)
   if not rule then
-    fb.memory.unwatch("rule")
+    uz.memory.unwatch("rule")
     return nil
   end
   if rule.kind == "memory" then
-    fb.memory.watch("rule", rule.addr, model.SIZES[rule.size])
+    uz.memory.watch("rule", rule.addr, model.SIZES[rule.size])
   else
-    fb.memory.unwatch("rule")
+    uz.memory.unwatch("rule")
   end
   return { rule = rule }
 end
 
-function M.disarm(fb)
-  fb.memory.unwatch("rule")
+function M.disarm(uz)
+  uz.memory.unwatch("rule")
 end
 
 --- Feeds a boolean condition; true exactly once, on the change from false to true after the baseline.
@@ -47,9 +47,9 @@ function M.feed_cond(st, cond)
 end
 
 --- One evaluation step of a memory rule. Returns true when the split should fire.
-function M.step_memory(fb, st)
+function M.step_memory(uz, st)
   local rule = st.rule
-  local v = fb.memory[rule.size](rule.addr)
+  local v = uz.memory[rule.size](rule.addr)
   if v == nil then return false end
   if rule.cmp == "changed" then
     if st.prev == nil then

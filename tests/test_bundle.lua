@@ -1,5 +1,5 @@
 local t = require("t")
-local fb_mock = require("fb_mock")
+local uz_mock = require("uz_mock")
 local J = require("json")
 
 local LUA = (arg and arg[-1]) or "lua5.4"
@@ -16,14 +16,14 @@ t.case("bundle --check passes", function()
 end)
 
 t.case("plugin/main.lua runs in a sandbox without require/load/io/os", function()
-  local mock = fb_mock.new({ game = { system = "nds", code = "ABCD", title = "Demo" } })
-  local env = { fb = mock.fb }
+  local mock = uz_mock.new({ game = { system = "nds", code = "ABCD", title = "Demo" } })
+  local env = { uz = mock.uz }
   for _, n in ipairs({ "assert", "error", "getmetatable", "ipairs", "next", "pairs", "pcall", "select",
     "setmetatable", "tonumber", "tostring", "type", "xpcall", "rawequal", "rawget", "rawlen", "rawset",
     "string", "table", "math", "utf8", "coroutine" }) do
     env[n] = _G[n]
   end
-  env.print = function(...) mock.fb.log.info(...) end
+  env.print = function(...) mock.uz.log.info(...) end
   env._VERSION = _VERSION
   for _, n in ipairs({ "require", "load", "loadstring", "dofile", "loadfile", "io", "os", "package", "debug" }) do
     t.eq(env[n], nil)
@@ -75,7 +75,7 @@ end)
 
 local function keys_of(path)
   local out = {}
-  for k in pairs(fb_mock.read_json_flat(read(path))) do out[k] = true end
+  for k in pairs(uz_mock.read_json_flat(read(path))) do out[k] = true end
   return out
 end
 
@@ -94,7 +94,7 @@ t.case("i18n: every key used in the sources exists, and every key is used", func
     if name:match("%.lua$") then
       local src = read("src/" .. name)
       for key in src:gmatch('T%("([%w_.]+)"') do used[key] = true end
-      for key in src:gmatch('fb%.i18n%.t%("([%w_.]+)"') do used[key] = true end
+      for key in src:gmatch('uz%.i18n%.t%("([%w_.]+)"') do used[key] = true end
     end
   end
   p:close()
@@ -112,8 +112,8 @@ t.case("i18n: every key used in the sources exists, and every key is used", func
 end)
 
 t.case("i18n placeholders match between languages", function()
-  local en = fb_mock.read_json_flat(read("plugin/i18n/en.json"))
-  local de = fb_mock.read_json_flat(read("plugin/i18n/de.json"))
+  local en = uz_mock.read_json_flat(read("plugin/i18n/en.json"))
+  local de = uz_mock.read_json_flat(read("plugin/i18n/de.json"))
   for k, v in pairs(en) do
     local a, b = {}, {}
     for ph in v:gmatch("{([%w_]+)}") do a[#a + 1] = ph end
@@ -121,4 +121,19 @@ t.case("i18n placeholders match between languages", function()
     table.sort(a); table.sort(b)
     t.eq(b, a, k)
   end
+end)
+
+t.case("old apps with only the global fb still start the bundled plugin", function()
+  local mock = uz_mock.new({ game = { system = "nds", code = "ABCD", title = "Demo" } })
+  local env = { fb = mock.uz }
+  for _, n in ipairs({ "assert", "error", "getmetatable", "ipairs", "next", "pairs", "pcall", "select",
+    "setmetatable", "tonumber", "tostring", "type", "xpcall", "rawequal", "rawget", "rawlen", "rawset",
+    "string", "table", "math", "utf8", "coroutine" }) do
+    env[n] = _G[n]
+  end
+  env._VERSION = _VERSION
+  t.eq(env.uz, nil)
+  local chunk = assert(load(read("plugin/main.lua"), "=plugin/main.lua", "t", env))
+  chunk()
+  t.ok(mock.ui.trees.hud and mock.ui.trees.panel and mock.ui.trees.screen, "surfaces drawn through the fb fallback")
 end)

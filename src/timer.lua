@@ -1,4 +1,4 @@
--- Timer on two clocks: game time (snapshot frames) and real time (fb.clock milliseconds).
+-- Timer on two clocks: game time (snapshot frames) and real time (uz.clock milliseconds).
 -- Pure: the caller passes the latest snapshot frame and the monotonic clock into every call.
 -- Game time stops by itself when the snapshot frame stops (the game is paused). A frame number that goes
 -- back (reset, loaded state) is a discontinuity: it counts nothing and becomes the new reference.

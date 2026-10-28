@@ -6,13 +6,13 @@ At a glance: Lua modules in `src/` are bundled into `plugin/main.lua`. A pure co
 
 - `src/`: modules, listed in `src/modules.txt`. `tools/bundle.lua` generates the committed `plugin/main.lua` (`--check` fails when stale); the Uzume sandbox has no `require`, the bundler defines one.
 - `plugin/`: `manifest.json`, generated `main.lua`, `i18n/en.json` (source) and `de.json`.
-- `tests/`: `lua5.4 tests/run.lua` runs every `tests/test_*.lua` against `tests/support/fb_mock.lua` (fake `fb` with store, run, ui validator, memory, events, `fb.call` providers). Synthetic data only.
+- `tests/`: `lua5.4 tests/run.lua` runs every `tests/test_*.lua` against `tests/support/uz_mock.lua` (fake `uz` with store, run, ui validator, memory, events, `uz.call` providers). Synthetic data only.
 
 ## Modules
 
 | Module | Role |
 |---|---|
-| `timer` | Two clocks. Game time = snapshot frames from `fb.on_tick` / `fb.memory.frame()` divided by the frame rate; real time = `fb.clock()`. Game time stops by itself while the frame number stops (game paused). A frame number that goes back (reset, loaded state) counts nothing. Manual pause stops both. |
+| `timer` | Two clocks. Game time = snapshot frames from `uz.on_tick` / `uz.memory.frame()` divided by the frame rate; real time = `uz.clock()`. Game time stops by itself while the frame number stops (game paused). A frame number that goes back (reset, loaded state) counts nothing. Manual pause stops both. |
 | `model` | Split list, attempt, best segments ("gold"), personal best, rule normalization. Pure. |
 | `textio` | Export and import of a list as text (below). |
 | `rules` | Autosplit rule state for the current split. |
@@ -22,7 +22,7 @@ At a glance: Lua modules in `src/` are bundled into `plugin/main.lua`. A pure co
 
 ## Data
 
-One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`fb.store`, permission `store`). Value: `{ v = 1, timing, fps, next_id, attempts, completed, splits = { { id, name, rule? } }, sets = { game = {...}, real = {...} } }` where a set is `{ pb = { total, times = { [split id] = cumulative ms } }, golds = { [split id] = ms } }`. Game time and real time keep separate sets. Times are keyed by split id, so renaming and reordering keep them; deleting a split removes its times. A stale write (another PC saved first) is refused by the store; the plugin tells the user and shows the stored version, the attempted one stays as a store conflict. Without a game (shell context) nothing is stored and the screen shows an empty state.
+One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`uz.store`, permission `store`). Value: `{ v = 1, timing, fps, next_id, attempts, completed, splits = { { id, name, rule? } }, sets = { game = {...}, real = {...} } }` where a set is `{ pb = { total, times = { [split id] = cumulative ms } }, golds = { [split id] = ms } }`. Game time and real time keep separate sets. Times are keyed by split id, so renaming and reordering keep them; deleting a split removes its times. A stale write (another PC saved first) is refused by the store; the plugin tells the user and shows the stored version, the attempted one stays as a store conflict. Without a game (shell context) nothing is stored and the screen shows an empty state.
 
 ## Timing rules
 
@@ -34,15 +34,15 @@ One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`fb.store
 
 ## Hotkeys
 
-Declared in the manifest (`ui.hotkeys`), delivered to `fb.ui.on_action(id, nil, "hotkey")`: `split` (start, then split), `undo`, `skip`, `reset`, `pause` (toggle), `open` (editor). Suggested keys are `Ctrl+Shift+Space/Z/K/X/P/E`; they avoid SoulLink's `Ctrl+H`, `Ctrl+D`, `Ctrl+R` (a test checks this). The user can rebind them in Controllers > Hotkeys. The same ids are used by the buttons in the panel and screen.
+Declared in the manifest (`ui.hotkeys`), delivered to `uz.ui.on_action(id, nil, "hotkey")`: `split` (start, then split), `undo`, `skip`, `reset`, `pause` (toggle), `open` (editor). Suggested keys are `Ctrl+Shift+Space/Z/K/X/P/E`; they avoid SoulLink's `Ctrl+H`, `Ctrl+D`, `Ctrl+R` (a test checks this). The user can rebind them in Controllers > Hotkeys. The same ids are used by the buttons in the panel and screen.
 
 ## Autosplitter
 
 A split has an optional rule, evaluated only for the current split of a running timer.
 
-- `memory`: address, size (`u8`, `u16`, `u32`), comparison (`=`, `!=`, `>`, `>=`, `<`, `<=`, `changed`), value. The range is watched with `fb.memory.watch("rule", ...)` and read on every tick. A condition that is already true when the split becomes current waits for the next change from false to true; `changed` fires when the value differs from the one seen at activation.
+- `memory`: address, size (`u8`, `u16`, `u32`), comparison (`=`, `!=`, `>`, `>=`, `<`, `<=`, `changed`), value. The range is watched with `uz.memory.watch("rule", ...)` and read on every tick. A condition that is already true when the split becomes current waits for the next change from false to true; `changed` fires when the value differs from the one seen at activation.
 - `location`: fires on the event `location.changed` of `uzume.soullink-core` when `zone` matches. The id comes from the game; names shown in the editor are only those the event carried in this session. "Use current zone" copies the last seen zone.
-- `badge`: fires on the event `badges.changed` `{ count, new }` of `uzume.soullink-core` (soullink-core 0.6.1 or later) when `new` contains N. No `fb.call`, so no `requires` is needed.
+- `badge`: fires on the event `badges.changed` `{ count, new }` of `uzume.soullink-core` (soullink-core 0.6.1 or later) when `new` contains N. No `uz.call`, so no `requires` is needed.
 
 ## Text format
 
@@ -56,7 +56,7 @@ Name | rule | PB | best segment
 
 ## Run events
 
-When a run is open in the game (`fb.run.current()`), a new personal best posts the run event `splits.pb` (`text` "New personal best: <time>", `payload` `{ total_ms, timing, splits }`, source automatic). The manifest `recap` block maps `splits.pb` to the glyph `note` (contract in the Uzume 0.22 plan, package 2). A paused run refuses the write; the plugin logs it and goes on.
+When a run is open in the game (`uz.run.current()`), a new personal best posts the run event `splits.pb` (`text` "New personal best: <time>", `payload` `{ total_ms, timing, splits }`, source automatic). The manifest `recap` block maps `splits.pb` to the glyph `note` (contract in the Uzume 0.22 plan, package 2). A paused run refuses the write; the plugin logs it and goes on.
 
 ## Open points
 
