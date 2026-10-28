@@ -139,7 +139,11 @@ function M.new(opts)
     u8 = reader("<I1", 1), u16 = reader("<I2", 2), u32 = reader("<I4", 4), u64 = reader("<i8", 8),
     s8 = reader("<i1", 1), s16 = reader("<i2", 2), s32 = reader("<i4", 4),
     bytes = function(addr, len) return read(addr, len) end,
-    frame = function() return mock.frame_value end,
+    -- Like the app: snapshots (and so the frame number and the ticks) exist only while the plugin watches a range.
+    frame = function()
+      if next(mock.watches) == nil then return nil end
+      return mock.frame_value
+    end,
   }
 
   uz.log = {}
@@ -173,7 +177,8 @@ function M.new(opts)
     mock.provided[name] = tbl
   end
 
-  -- Clock and ticks. mock.tick(n, frames_per_tick, ms_per_tick) advances the snapshot frame and the clock.
+  -- Clock and ticks. mock.tick(n, frames_per_tick, ms_per_tick) advances the snapshot frame and the clock
+  -- (the frame only while a range is watched, as in the app).
   local now = 1000
   uz.clock = function() return now end
   function mock.advance(ms) now = now + ms end
@@ -181,16 +186,19 @@ function M.new(opts)
   uz.on_tick = function(fn) tick_fn = fn end
   function mock.tick(n, frames, ms)
     for _ = 1, n or 1 do
-      mock.frame_value = (mock.frame_value or 0) + (frames or 2)
       now = now + (ms or 33)
-      if tick_fn then tick_fn(mock.frame_value) end
+      -- The emulation copies a snapshot only for watched ranges; without one there is no frame and no tick.
+      if next(mock.watches) ~= nil then
+        mock.frame_value = (mock.frame_value or 0) + (frames or 2)
+        if tick_fn then tick_fn(mock.frame_value) end
+      end
     end
   end
   --- A tick in which the game is paused: the clock moves, the snapshot frame stays.
   function mock.tick_paused(n, ms)
     for _ = 1, n or 1 do
       now = now + (ms or 33)
-      if tick_fn then tick_fn(mock.frame_value) end
+      if tick_fn and next(mock.watches) ~= nil then tick_fn(mock.frame_value) end
     end
   end
 
