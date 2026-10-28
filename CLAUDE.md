@@ -38,5 +38,5 @@ uzume-plugin-splits is the Splits plugin (`uzume.splits`): a split timer for any
 
 ## Pointers
 
-- Plan and status: `docs/roadmap.md`. Workflow, roles and brief template: `docs/workflow.md`.
+- Open work: GitHub issues and milestones; direction and history: `docs/roadmap.md`. Workflow, roles and brief template: `docs/workflow.md`.
 - Uzume docs: https://github.com/phabioo/uzume (`docs/guides/plugin-api.md`, `docs/guides/plugin-publishing.md`, `docs/architecture/12-plugins.md`, `docs/adr/0023-plugins.md`).
