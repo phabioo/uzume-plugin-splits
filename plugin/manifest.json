@@ -2,6 +2,7 @@
   "id": "uzume.splits",
   "name": "Splits",
   "version": "0.1.3",
+  "issues_url": "https://github.com/phabioo/uzume-plugin-splits",
   "api": 1,
   "type": "script",
   "permissions": ["memory.read", "store", "ui", "run.state"],
