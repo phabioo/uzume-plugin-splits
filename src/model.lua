@@ -1,4 +1,4 @@
--- Split list, personal best, best segments and one attempt. Pure data logic, no fb.
+-- Split list, personal best, best segments and one attempt. Pure data logic, no uz.
 --
 -- list = { v = 1, timing = "game"|"real", fps = number, next_id = n, attempts = n, completed = n,
 --          splits = { { id, name, rule? }, ... },

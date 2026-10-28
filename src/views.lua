@@ -1,4 +1,4 @@
--- Declarative UI trees (HUD, panel, screen) built from a view model. Pure functions, no fb access.
+-- Declarative UI trees (HUD, panel, screen) built from a view model. Pure functions, no uz access.
 local fmt = require("fmt")
 local model = require("model")
 local rules = require("rules")

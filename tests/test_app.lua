@@ -136,7 +136,7 @@ t.case("run events: refused write and no run are harmless", function()
   mock.run.refuse = "run is paused"
   mock.hotkey("split"); mock.tick(5, 2); mock.hotkey("split")
   t.eq(#mock.run_events, 0)
-  local mock2 = H.boot({ names = { "A" } }) -- no run: fb.run is nil
+  local mock2 = H.boot({ names = { "A" } }) -- no run: uz.run is nil
   mock2.hotkey("split"); mock2.tick(5, 2); mock2.hotkey("split")
   t.eq(#mock2.run_events, 0)
 end)
@@ -262,7 +262,7 @@ t.case("store conflict: nothing is lost silently, the user is told", function()
   mock.action("add", "Local")
   t.eq(#mock.ui.notes, 1)
   t.eq(mock.ui.notes[1].tone, "warning")
-  t.eq(#mock.fb.store.conflicts(H.KEY), 1, "the attempted version is kept as a conflict")
+  t.eq(#mock.uz.store.conflicts(H.KEY), 1, "the attempted version is kept as a conflict")
   t.eq(app.list.splits[1].name, "Remote", "the shown list is the stored one")
 end)
 
@@ -290,7 +290,7 @@ t.case("every manifest hotkey is handled", function()
   mock.hotkey("unknown-key") -- ignored
 end)
 
-t.case("open without fb.ui.open (older app) does not fail", function()
+t.case("open without uz.ui.open (older app) does not fail", function()
   local mock = H.boot({ names = { "A" }, no_ui_open = true })
   mock.hotkey("open")
   t.eq(mock.ui.opened, {})
@@ -426,7 +426,7 @@ t.case("german translation is used when the game language is German", function()
   t.eq(H.text(mock, "hud", "split"), "Bereit: A")
 end)
 
-t.case("every tree handed to the app validates (fb.ui.set checks them all)", function()
+t.case("every tree handed to the app validates (uz.ui.set checks them all)", function()
   local mock, app = H.boot({ names = { "A", "B", "C" } })
   for _, tab in ipairs({ 1, 2, 3 }) do mock.action("tab", tab) end
   mock.hotkey("split"); mock.tick(10, 2); mock.hotkey("skip"); mock.hotkey("pause"); mock.hotkey("pause")

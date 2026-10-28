@@ -10,7 +10,7 @@ local views = require("views")
 local App = {}
 App.__index = App
 
-local CORE_ID = "uzume.soullink-core" -- soft dependency: global events by id (no `requires`, no fb.call)
+local CORE_ID = "uzume.soullink-core" -- soft dependency: global events by id (no `requires`, no uz.call)
 local PANEL_REFRESH_TICKS = 10
 
 -- Frame rate guesses per system (the API has no frame rate; the user can change it in the editor).
@@ -28,10 +28,10 @@ function App.store_key(game)
   return "splits." .. code:sub(1, 50)
 end
 
-function App.new(fb)
+function App.new(uz)
   local self = setmetatable({}, App)
-  self.fb = fb
-  self.T = function(key, vars) return fb.i18n.t(key, vars) end
+  self.uz = uz
+  self.T = function(key, vars) return uz.i18n.t(key, vars) end
   self.timer = timer.new()
   self.tab = 1
   self.ticks = 0
@@ -42,16 +42,16 @@ function App.new(fb)
 end
 
 function App:frame()
-  return self.fb.memory.frame() or self.last_frame
+  return self.uz.memory.frame() or self.last_frame
 end
 
 --- Brings the timer up to date with the latest snapshot frame and clock.
 function App:sync()
-  self.timer:update(self:frame(), self.fb.clock())
+  self.timer:update(self:frame(), self.uz.clock())
 end
 
 function App:notify(tone, title, body)
-  pcall(self.fb.ui.notify, { tone = tone, title = title, text = body })
+  pcall(self.uz.ui.notify, { tone = tone, title = title, text = body })
 end
 
 -- Storage -------------------------------------------------------------------------------------------------
@@ -60,19 +60,19 @@ function App:load()
   self.list, self.rev = nil, 0
   if not self.key then return end
   local value, rev = nil, 0
-  if self.fb.store then
-    local ok, v, r = pcall(self.fb.store.get, self.key)
-    if ok then value, rev = v, r or 0 else self.fb.log.warn("store.get failed: " .. tostring(v)) end
+  if self.uz.store then
+    local ok, v, r = pcall(self.uz.store.get, self.key)
+    if ok then value, rev = v, r or 0 else self.uz.log.warn("store.get failed: " .. tostring(v)) end
   end
   self.rev = rev
-  self.list = model.sanitize(value) or model.new_list("game", default_fps(self.fb.game.system))
+  self.list = model.sanitize(value) or model.new_list("game", default_fps(self.uz.game.system))
 end
 
 function App:save()
-  if not self.key or not self.list or not self.fb.store then return end
-  local ok, res, why = pcall(self.fb.store.put, self.key, self.list, self.rev)
+  if not self.key or not self.list or not self.uz.store then return end
+  local ok, res, why = pcall(self.uz.store.put, self.key, self.list, self.rev)
   if not ok then
-    self.fb.log.warn("store.put failed: " .. tostring(res))
+    self.uz.log.warn("store.put failed: " .. tostring(res))
     self:notify("warning", self.T("store.failed.title"), self.T("store.failed.text"))
   elseif res == true then
     self.rev = why
@@ -81,7 +81,7 @@ function App:save()
     self.stale = true
     self:reload_if_idle()
   else
-    self.fb.log.warn("store.put refused: " .. tostring(why))
+    self.uz.log.warn("store.put refused: " .. tostring(why))
     self:notify("warning", self.T("store.failed.title"), self.T("store.failed.text"))
   end
 end
@@ -101,20 +101,20 @@ end
 -- Lifecycle -----------------------------------------------------------------------------------------------
 
 function App:start()
-  local fb = self.fb
-  self.key = App.store_key(fb.game)
+  local uz = self.uz
+  self.key = App.store_key(uz.game)
   self:load()
-  fb.on_tick(function(frame) self:tick(frame) end)
-  fb.ui.on_action(function(a, v, s) self:action(a, v, s) end)
-  fb.events.on(CORE_ID, "location.changed", function(v) self:on_location(v) end)
-  fb.events.on(CORE_ID, "badges.changed", function(v) self:on_badges(v) end)
-  fb.events.on("app", "store.changed", function(k)
+  uz.on_tick(function(frame) self:tick(frame) end)
+  uz.ui.on_action(function(a, v, s) self:action(a, v, s) end)
+  uz.events.on(CORE_ID, "location.changed", function(v) self:on_location(v) end)
+  uz.events.on(CORE_ID, "badges.changed", function(v) self:on_badges(v) end)
+  uz.events.on("app", "store.changed", function(k)
     if k == self.key then
       self.stale = true
       self:reload_if_idle()
     end
   end)
-  fb.events.on("app", "store.conflict", function(k)
+  uz.events.on("app", "store.conflict", function(k)
     if k == self.key then
       self:notify("warning", self.T("store.conflict.title"), self.T("store.conflict.text"))
     end
@@ -126,12 +126,12 @@ end
 
 function App:arm()
   if self.timer.state ~= "running" or not self.att then
-    rules.disarm(self.fb)
+    rules.disarm(self.uz)
     self.rule_state = nil
     return
   end
   local split = self.list.splits[model.current_index(self.att)]
-  self.rule_state = rules.arm(self.fb, split and split.rule)
+  self.rule_state = rules.arm(self.uz, split and split.rule)
 end
 
 function App:start_run()
@@ -139,7 +139,7 @@ function App:start_run()
   self.att = model.new_attempt()
   self.result = nil
   self.backup = nil
-  self.timer:start(self:frame(), self.fb.clock())
+  self.timer:start(self:frame(), self.uz.clock())
   self.list.attempts = self.list.attempts + 1
   self:save()
   self:arm()
@@ -147,7 +147,7 @@ end
 
 function App:do_split()
   local list, att = self.list, self.att
-  self.timer:update(self:frame(), self.fb.clock())
+  self.timer:update(self:frame(), self.uz.clock())
   local ms = self.timer:ms(list.timing, list.fps)
   if model.record_split(list, att, ms) then
     self:finish()
@@ -160,7 +160,7 @@ function App:finish()
   local list, att = self.list, self.att
   local set = model.set(list)
   self.backup = { pb = util.copy(set.pb), golds = util.copy(set.golds), completed = list.completed }
-  self.timer:stop(self:frame(), self.fb.clock())
+  self.timer:stop(self:frame(), self.uz.clock())
   local info = model.commit(list, att, true)
   self.result = { total = info.total, old_total = info.old_total, pb = info.pb }
   self:save()
@@ -170,19 +170,19 @@ end
 
 --- Run event "splits.pb" (a note in the run recap) when a run is open in the game.
 function App:post_pb(info)
-  local fb = self.fb
-  if not fb.run or not fb.run.event then return end
-  local ok, cur = pcall(fb.run.current)
+  local uz = self.uz
+  if not uz.run or not uz.run.event then return end
+  local ok, cur = pcall(uz.run.current)
   if not ok or not cur then return end
   local text = self.T("event.pb", { time = fmt.time(info.total) })
-  local ok2, res, why = pcall(fb.run.event, {
+  local ok2, res, why = pcall(uz.run.event, {
     type = "splits.pb", text = text, source = "automatic",
     payload = { total_ms = info.total, timing = self.list.timing, splits = #self.list.splits },
   })
   if not ok2 then
-    fb.log.warn("run event failed: " .. tostring(res))
+    uz.log.warn("run event failed: " .. tostring(res))
   elseif res == nil then
-    fb.log.info("run event refused: " .. tostring(why))
+    uz.log.info("run event refused: " .. tostring(why))
   end
 end
 
@@ -207,7 +207,7 @@ function App:undo()
     end
     model.undo(self.att)
     self.result = nil
-    self.timer:continue(self:frame(), self.fb.clock())
+    self.timer:continue(self:frame(), self.uz.clock())
     self:arm()
   elseif st == "running" or st == "paused" then
     if model.undo(self.att) then self:arm() end
@@ -234,11 +234,11 @@ end
 function App:pause()
   local st = self.timer.state
   if st == "running" then
-    self.timer:pause(self:frame(), self.fb.clock())
-    rules.disarm(self.fb)
+    self.timer:pause(self:frame(), self.uz.clock())
+    rules.disarm(self.uz)
     self.rule_state = nil
   elseif st == "paused" then
-    self.timer:resume(self:frame(), self.fb.clock())
+    self.timer:resume(self:frame(), self.uz.clock())
     self:arm()
   end
 end
@@ -279,7 +279,7 @@ function App:autosplit()
   local rule = self:current_rule()
   if not rule or not self.rule_state then return false end
   if rule.kind == "memory" then
-    return rules.step_memory(self.fb, self.rule_state)
+    return rules.step_memory(self.uz, self.rule_state)
   end
   return false
 end
@@ -289,7 +289,7 @@ end
 function App:tick(frame)
   self.last_frame = frame
   self.ticks = self.ticks + 1
-  self.timer:update(frame, self.fb.clock())
+  self.timer:update(frame, self.uz.clock())
   local changed = false
   if self.timer.state == "running" and self:autosplit() then
     self:do_split()
@@ -367,14 +367,14 @@ function App:set_if_changed(slot, tree)
   if self.no_disabled then strip_disabled(tree) end
   local key = util.ser(tree)
   if self.shown[slot] == key then return end
-  local ok, err = pcall(self.fb.ui.set, slot, tree)
+  local ok, err = pcall(self.uz.ui.set, slot, tree)
   if not ok then
     if not self.no_disabled and tostring(err):find("disabled", 1, true) then
       self.no_disabled = true
       strip_disabled(tree)
       key = util.ser(tree)
       if self.shown[slot] == key then return end
-      self.fb.ui.set(slot, tree)
+      self.uz.ui.set(slot, tree)
     else
       error(err, 0)
     end
@@ -475,7 +475,7 @@ end
 
 local function current_zone(self)
   if self.last_zone then return self.last_zone end
-  local ok, loc = pcall(self.fb.call, "pokemon.core", "location")
+  local ok, loc = pcall(self.uz.call, "pokemon.core", "location")
   if ok and type(loc) == "table" and math.type(loc.zone) == "integer" then
     if type(loc.name) == "string" then self.names_seen[loc.zone] = loc.name end
     return loc.zone
@@ -491,7 +491,7 @@ function H.skip(self) self:skip() end
 function H.reset(self) self:reset() end
 function H.pause(self) self:pause() end
 function H.open(self)
-  if self.fb.ui.open then self.fb.ui.open("screen") end
+  if self.uz.ui.open then self.uz.ui.open("screen") end
 end
 function H.tab(self, v)
   if math.type(v) == "integer" and v >= 1 and v <= 3 then self.tab = v end

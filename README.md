@@ -2,7 +2,7 @@
 
 A split timer for any game in Uzume: game time and real time, HUD widget, split lists per game with personal best and best segments, hotkeys and optional autosplit rules.
 
-Status: **v0.1.2** (timer, HUD, panel, editor, text import and export, hotkeys, memory and Pokémon autosplit rules, `splits.pb` run event).
+Status: **v0.1.3** (timer, HUD, panel, editor, text import and export, hotkeys, memory and Pokémon autosplit rules, `splits.pb` run event).
 
 For Uzume with plugin API v1 (since Uzume 0.11, store since 0.20). Part of [Uzume](https://github.com/phabioo/uzume); plugin API: [`docs/guides/plugin-api.md`](https://github.com/phabioo/uzume/blob/main/docs/guides/plugin-api.md) there. Layout and design: [docs/architecture.md](docs/architecture.md). Plan: [docs/roadmap.md](docs/roadmap.md).
 
@@ -11,7 +11,7 @@ For Uzume with plugin API v1 (since Uzume 0.11, store since 0.20). Part of [Uzum
 ```
 lua5.4 tools/bundle.lua           # writes plugin/main.lua from src/ (committed)
 lua5.4 tools/bundle.lua --check   # fails when plugin/main.lua is stale
-lua5.4 tests/run.lua              # tests against a fake fb with synthetic data
+lua5.4 tests/run.lua              # tests against a fake uz with synthetic data
 python3 -I tools/package.py       # builds dist/uzume.splits-<version>.uzplugin
 ```
 

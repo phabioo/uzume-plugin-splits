@@ -1,4 +1,4 @@
--- Fake `fb` for tests (synthetic data only). See M.new for the options.
+-- Fake `uz` for tests (synthetic data only). See M.new for the options.
 local ui_validator = require("ui_validator")
 local M = {}
 
@@ -91,10 +91,10 @@ end
 function M.new(opts)
   opts = opts or {}
   local mock = { logs = {}, events = {}, provided = {}, watches = {}, calls = {}, providers = {} }
-  local fb = { api = 1, plugin = opts.plugin or { id = "uzume.test", version = "0.0.0" } }
-  fb.game = opts.game or {}
-  if opts.language and not fb.game.language then fb.game.language = opts.language end
-  mock.fb = fb
+  local uz = { api = 1, plugin = opts.plugin or { id = "uzume.test", version = "0.0.0" } }
+  uz.game = opts.game or {}
+  if opts.language and not uz.game.language then uz.game.language = opts.language end
+  mock.uz = uz
 
   -- Memory: mutable regions, a settable snapshot frame.
   local regions = {}
@@ -130,7 +130,7 @@ function M.new(opts)
     regions[#regions + 1] = { addr = addr, data = data }
   end
   mock.frame_value = nil
-  fb.memory = {
+  uz.memory = {
     watch = function(key, addr, len)
       if type(key) ~= "string" or type(addr) ~= "number" or type(len) ~= "number" or len < 1 then error("bad watch", 2) end
       mock.watches[key] = { addr = addr, len = len }
@@ -142,9 +142,9 @@ function M.new(opts)
     frame = function() return mock.frame_value end,
   }
 
-  fb.log = {}
+  uz.log = {}
   for _, level in ipairs({ "debug", "info", "warn", "error" }) do
-    fb.log[level] = function(...)
+    uz.log[level] = function(...)
       local parts = table.pack(...)
       for i = 1, parts.n do parts[i] = tostring(parts[i]) end
       mock.logs[#mock.logs + 1] = { level = level, text = table.concat(parts, "\t", 1, parts.n) }
@@ -158,7 +158,7 @@ function M.new(opts)
       if (h[1] == "*" or h[1] == plugin_id) and h[2] == name then h[3](deep_copy(value), plugin_id, name) end
     end
   end
-  fb.events = {
+  uz.events = {
     emit = function(name, value)
       check_value(value, 1)
       mock.events[#mock.events + 1] = { name = name, value = deep_copy(value) }
@@ -168,17 +168,17 @@ function M.new(opts)
       handlers[#handlers + 1] = { plugin_id, name, fn }
     end,
   }
-  fb.provide = function(name, tbl)
+  uz.provide = function(name, tbl)
     assert(type(name) == "string" and type(tbl) == "table", "bad provide")
     mock.provided[name] = tbl
   end
 
   -- Clock and ticks. mock.tick(n, frames_per_tick, ms_per_tick) advances the snapshot frame and the clock.
   local now = 1000
-  fb.clock = function() return now end
+  uz.clock = function() return now end
   function mock.advance(ms) now = now + ms end
   local tick_fn
-  fb.on_tick = function(fn) tick_fn = fn end
+  uz.on_tick = function(fn) tick_fn = fn end
   function mock.tick(n, frames, ms)
     for _ = 1, n or 1 do
       mock.frame_value = (mock.frame_value or 0) + (frames or 2)
@@ -205,7 +205,7 @@ function M.new(opts)
     end
   end
   mock.strings = strings
-  fb.i18n = {
+  uz.i18n = {
     t = function(key, vars)
       local s = strings[key] or key
       return (s:gsub("{([%w_]+)}", function(k)
@@ -214,10 +214,10 @@ function M.new(opts)
     end,
   }
 
-  -- fb.call: fake providers. mock.set_provider("pokemon.core", { fn = function ... end }).
+  -- uz.call: fake providers. mock.set_provider("pokemon.core", { fn = function ... end }).
   -- A name without a provider raises like an interface the plugin did not list in `requires`.
   function mock.set_provider(name, tbl) mock.providers[name] = tbl end
-  fb.call = function(name, fn, ...)
+  uz.call = function(name, fn, ...)
     local p = mock.providers[name]
     if not p then error("no plugin provides " .. tostring(name), 2) end
     local f = p[fn]
@@ -230,14 +230,14 @@ function M.new(opts)
     return table.unpack(res, 1, res.n)
   end
 
-  -- fb.store (permission store): revisions, stale-write conflicts. opts.store = false leaves it out.
+  -- uz.store (permission store): revisions, stale-write conflicts. opts.store = false leaves it out.
   mock.store = { data = {}, revs = {}, puts = 0, conflicts = {} }
   if opts.store ~= false then
     for k, v in pairs(type(opts.store) == "table" and opts.store or {}) do
       mock.store.data[k] = deep_copy(v)
       mock.store.revs[k] = 1
     end
-    fb.store = {
+    uz.store = {
       get = function(key)
         if type(key) ~= "string" or not key:match("^[a-z0-9_.-]+$") or #key > 64 then error("store: bad key", 2) end
         local v = mock.store.data[key]
@@ -269,11 +269,11 @@ function M.new(opts)
     end
   end
 
-  -- fb.run (permission run.state): opts.run = { current = { id, status, ... } }
+  -- uz.run (permission run.state): opts.run = { current = { id, status, ... } }
   mock.run_events = {}
   if opts.run then
     mock.run = { current = deep_copy(opts.run.current), refuse = nil }
-    fb.run = {
+    uz.run = {
       current = function() return deep_copy(mock.run.current) end,
       event = function(spec)
         if type(spec) ~= "table" or type(spec.type) ~= "string" then error("event: type required", 2) end
@@ -286,7 +286,7 @@ function M.new(opts)
     }
   end
 
-  -- fb.ui validates every tree against the documented catalog and records what was shown.
+  -- uz.ui validates every tree against the documented catalog and records what was shown.
   local ui = { trees = {}, sets = {}, notes = {}, titles = {}, opened = {}, closed = {}, dot = nil, badge = nil }
   mock.ui = ui
   local function declared(slot)
@@ -295,7 +295,7 @@ function M.new(opts)
       or slot:match("^tile:[%w_.%-]+$") ~= nil
   end
   ui_validator.legacy = opts.legacy_ui or false -- true: the fake app rejects `disabled` like an app before 0.22
-  fb.ui = {
+  uz.ui = {
     set = function(slot, tree)
       if not declared(slot) then error("slot " .. tostring(slot) .. " not declared in manifest", 2) end
       local ok, err = ui_validator.validate(tree)
@@ -326,14 +326,14 @@ function M.new(opts)
     on_action = function(fn) ui.handler = fn end,
   }
   if not opts.no_ui_open then
-    fb.ui.open = function(slot)
+    uz.ui.open = function(slot)
       if slot ~= "screen" and slot ~= "panel" then error("open: slot " .. tostring(slot) .. " not supported", 2) end
       ui.opened[#ui.opened + 1] = slot
       return true
     end
-    fb.ui.close = function(slot) ui.closed[#ui.closed + 1] = slot end
+    uz.ui.close = function(slot) ui.closed[#ui.closed + 1] = slot end
   end
-  --- mock.action(action, value, slot) calls the registered fb.ui.on_action handler.
+  --- mock.action(action, value, slot) calls the registered uz.ui.on_action handler.
   function mock.action(action, value, slot) return ui.handler(action, deep_copy(value), slot) end
   --- mock.hotkey(id) presses a plugin hotkey.
   function mock.hotkey(id) return ui.handler(id, nil, "hotkey") end
