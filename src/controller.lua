@@ -41,6 +41,8 @@ function App.new(uz)
   return self
 end
 
+local CLOCK_WATCH = "clock"
+
 function App:frame()
   return self.uz.memory.frame() or self.last_frame
 end
@@ -104,6 +106,9 @@ function App:start()
   local uz = self.uz
   self.key = App.store_key(uz.game)
   self:load()
+  -- The app copies a memory snapshot (frame number and ticks) only while a plugin watches a range, so game
+  -- time needs one even without a rule. Address 0 may be unmapped: the snapshot still carries the frame.
+  uz.memory.watch(CLOCK_WATCH, 0, 1)
   uz.on_tick(function(frame) self:tick(frame) end)
   uz.ui.on_action(function(a, v, s) self:action(a, v, s) end)
   uz.events.on(CORE_ID, "location.changed", function(v) self:on_location(v) end)

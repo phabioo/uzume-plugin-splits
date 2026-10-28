@@ -523,3 +523,18 @@ t.case("disabled: a modern app keeps the key and the fallback stays off", functi
   t.ok(not app.no_disabled)
   t.eq(buttons_of(mock.ui.trees.screen).undo.disabled, true)
 end)
+
+t.case("game time needs a watched range: the app delivers no frame or tick without one (issue 16)", function()
+  local mock, app = H.boot({ names = { "A", "B" } })
+  t.ok(mock.watches.clock, "the plugin registers a range so the app copies snapshots")
+  mock.hotkey("split")
+  mock.tick(120, 1) -- 2 s at 60 fps
+  mock.hotkey("split")
+  t.eq(app.att.results[1].time, 2000, "split time from snapshot frames")
+  -- Without any watch the mock behaves like the app: no frame, no tick, so the timer would stay at zero.
+  mock.watches.clock = nil
+  t.eq(mock.uz.memory.frame(), nil)
+  local before = app.ticks
+  mock.tick(5, 2)
+  t.eq(app.ticks, before, "no tick without a watched range")
+end)

@@ -12,7 +12,7 @@ At a glance: Lua modules in `src/` are bundled into `plugin/main.lua`. A pure co
 
 | Module | Role |
 |---|---|
-| `timer` | Two clocks. Game time = snapshot frames from `uz.on_tick` / `uz.memory.frame()` divided by the frame rate; real time = `uz.clock()`. Game time stops by itself while the frame number stops (game paused). A frame number that goes back (reset, loaded state) counts nothing. Manual pause stops both. |
+| `timer` | Two clocks. Game time = snapshot frames (the app copies snapshots only while a range is watched, so the plugin always watches one byte under the key `clock`) from `uz.on_tick` / `uz.memory.frame()` divided by the frame rate; real time = `uz.clock()`. Game time stops by itself while the frame number stops (game paused). A frame number that goes back (reset, loaded state) counts nothing. Manual pause stops both. |
 | `model` | Split list, attempt, best segments ("gold"), personal best, rule normalization. Pure. |
 | `textio` | Export and import of a list as text (below). |
 | `rules` | Autosplit rule state for the current split. |
