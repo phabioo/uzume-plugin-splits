@@ -89,5 +89,19 @@
   "store.failed.text": "Die Splitliste konnte nicht gespeichert werden. Deine Änderungen bleiben, bis die App schließt.",
   "store.conflict.title": "Splits woanders geändert",
   "store.conflict.text": "Ein anderer PC hat diese Splitliste zuerst gespeichert. Beide Versionen bleiben erhalten; die neuere wird angezeigt.",
-  "event.pb": "Neue Bestzeit: {time}"
+  "event.pb": "Neue Bestzeit: {time}",
+  "hud.sob": "Summe der Besten {time}",
+  "hud.cmp.best": "(vs. Bestzeiten)",
+  "col.delta_best": "Delta (Beste)",
+  "stat.sob_gap": "Mögliche Zeitersparnis",
+  "edit.compare": "Vergleich",
+  "compare.pb": "Persönliche Bestzeit",
+  "compare.best": "Beste Abschnitte",
+  "compare.hint": "Deltas werden gegen die persönliche Bestzeit dieser Liste oder gegen die Summe der besten Abschnitte gezeigt. Fehlen beste Abschnitte, hat ein Split keinen Vergleich.",
+  "edit.list_rules": "Start- und Reset-Regeln",
+  "list_rules.start": "Start",
+  "list_rules.reset": "Reset",
+  "list_rules.hint": "Optional. Eine Startregel startet die Zeit, solange sie steht; eine Resetregel setzt sie zurück (wie die Reset-Taste: ein Reset speichert nie eine Bestzeit). Eine Bedingung, die schon wahr ist, wartet auf die nächste Änderung. Standardmäßig aus.",
+  "rule.title.start": "Startregel",
+  "rule.title.reset": "Resetregel"
 }

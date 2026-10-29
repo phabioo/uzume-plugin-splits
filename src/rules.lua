@@ -18,21 +18,23 @@ function M.compare(op, a, b)
 end
 
 --- Starts watching for `rule` (nil = no rule). Returns the evaluation state, or nil without a rule.
-function M.arm(uz, rule)
+--- `key` is the watch key ("rule" for the autosplit rule of the current split, "start" / "reset" for the list rules).
+function M.arm(uz, rule, key)
+  key = key or "rule"
   if not rule then
-    uz.memory.unwatch("rule")
+    uz.memory.unwatch(key)
     return nil
   end
   if rule.kind == "memory" then
-    uz.memory.watch("rule", rule.addr, model.SIZES[rule.size])
+    uz.memory.watch(key, rule.addr, model.SIZES[rule.size])
   else
-    uz.memory.unwatch("rule")
+    uz.memory.unwatch(key)
   end
   return { rule = rule }
 end
 
-function M.disarm(uz)
-  uz.memory.unwatch("rule")
+function M.disarm(uz, key)
+  uz.memory.unwatch(key or "rule")
 end
 
 --- Feeds a boolean condition; true exactly once, on the change from false to true after the baseline.

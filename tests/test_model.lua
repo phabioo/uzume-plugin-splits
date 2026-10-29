@@ -176,3 +176,39 @@ t.case("sanitize drops garbage and keeps valid data", function()
   t.eq(bad.sets.game.golds, {})
   t.ok(bad.next_id >= 2)
 end)
+
+t.case("sum of best: all, missing and empty; comparison choice and old data", function()
+  local list = H.list({ "A", "B", "C" })
+  t.eq(model.sum_of_best(H.list({})), nil)
+  t.eq(list.compare, "pb")
+  local g = model.set(list).golds
+  g[list.splits[1].id], g[list.splits[3].id] = 900, 700
+  t.eq(model.sum_of_best(list), nil, "B has no best segment")
+  local cum = model.best_cumulative(list)
+  t.eq(cum[list.splits[1].id], 900)
+  t.eq(cum[list.splits[2].id], nil, "the cumulative best ends at the first gap")
+  t.eq(cum[list.splits[3].id], nil)
+  g[list.splits[2].id] = 500
+  t.eq(model.sum_of_best(list), 2100)
+  t.eq(model.best_cumulative(list)[list.splits[3].id], 2100)
+  -- comparison: pb by default, best segments on request
+  model.set(list).pb = { total = 3000, times = { [list.splits[1].id] = 1000, [list.splits[3].id] = 3000 } }
+  t.eq(model.comparison(list)[list.splits[1].id], 1000)
+  t.eq(model.comparison_total(list), 3000)
+  list.compare = "best"
+  t.eq(model.comparison(list)[list.splits[2].id], 1400)
+  t.eq(model.comparison_total(list), 2100)
+  -- stored lists without the new fields get the defaults; bad values fall back
+  local old = model.sanitize({ v = 1, splits = { { id = "s1", name = "A" } } })
+  t.eq(old.compare, "pb")
+  t.eq(old.start_rule, nil)
+  t.eq(old.reset_rule, nil)
+  t.eq(model.sanitize({ v = 1, compare = "x", start_rule = { kind = "bogus" }, splits = {} }).compare, "pb")
+  local ok = model.sanitize({ v = 1, compare = "best", splits = {},
+    start_rule = { kind = "badge", n = 2 }, reset_rule = { kind = "location", zone = 5 } })
+  t.eq(ok.compare, "best")
+  t.eq(ok.start_rule, { kind = "badge", n = 2 })
+  t.eq(ok.reset_rule, { kind = "location", zone = 5 })
+  t.ok(not model.set_list_rule(list, "start_rule", { kind = "bogus" }))
+  t.ok(not model.set_list_rule(list, "other", nil))
+end)

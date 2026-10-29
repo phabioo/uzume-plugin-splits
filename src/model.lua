@@ -1,6 +1,7 @@
 -- Split list, personal best, best segments and one attempt. Pure data logic, no uz.
 --
 -- list = { v = 1, timing = "game"|"real", fps = number, next_id = n, attempts = n, completed = n,
+--          compare = "pb"|"best" (comparison for deltas, default "pb"), start_rule? / reset_rule? (same format as a split rule),
 --          splits = { { id, name, rule? }, ... },
 --          sets = { game = { pb = { total, times = { [id] = cumulative ms } }, golds = { [id] = ms } }, real = {...} } }
 -- Times are per timing method, so switching between game and real time never mixes them.
@@ -20,7 +21,7 @@ local function is_int(v) return math.type(v) == "integer" end
 
 function M.new_list(timing, fps)
   return { v = 1, timing = timing or "game", fps = fps or 60, next_id = 1, attempts = 0, completed = 0,
-           splits = {}, sets = {} }
+           compare = "pb", splits = {}, sets = {} }
 end
 
 --- The data set of the active timing method (created on demand).
@@ -72,6 +73,11 @@ function M.sanitize(v)
   local timing = v.timing == "real" and "real" or "game"
   local fps = type(v.fps) == "number" and v.fps >= 1 and v.fps <= 240 and v.fps or 60
   local list = M.new_list(timing, fps)
+  list.compare = v.compare == "best" and "best" or "pb"
+  for _, key in ipairs({ "start_rule", "reset_rule" }) do
+    local ok, rule = M.normalize_rule(v[key])
+    list[key] = ok and rule or nil
+  end
   local seen = {}
   for _, s in ipairs(v.splits) do
     if type(s) == "table" and type(s.id) == "string" and not seen[s.id] and #list.splits < M.MAX_SPLITS then
@@ -223,6 +229,41 @@ function M.is_gold(list, att, i)
   if not seg or seg <= 0 then return false end
   local best = M.set(list).golds[list.splits[i].id]
   return best == nil or seg < best
+end
+
+--- Cumulative best-segment time per split id (sum of the golds up to and including it). The map ends at the first
+--- split without a best segment, because later cumulative times would be unknown.
+function M.best_cumulative(list)
+  local golds, out, total = M.set(list).golds, {}, 0
+  for _, s in ipairs(list.splits) do
+    if not golds[s.id] then break end
+    total = total + golds[s.id]
+    out[s.id] = total
+  end
+  return out
+end
+
+--- Cumulative times (by split id) the attempt is compared against: personal best (default) or best segments.
+function M.comparison(list)
+  if list.compare == "best" then return M.best_cumulative(list) end
+  local pb = M.set(list).pb
+  return pb and pb.times or {}
+end
+
+--- Total of the comparison: PB total or sum of best; nil when unknown.
+function M.comparison_total(list)
+  if list.compare == "best" then return M.sum_of_best(list) end
+  local pb = M.set(list).pb
+  return pb and pb.total or nil
+end
+
+--- Sets (or clears with nil) the list-wide "start_rule" / "reset_rule". Returns true, or false for a bad rule.
+function M.set_list_rule(list, which, rule)
+  if which ~= "start_rule" and which ~= "reset_rule" then return false end
+  local ok, norm = M.normalize_rule(rule)
+  if not ok then return false end
+  list[which] = norm
+  return true
 end
 
 --- Sum of the best segments, or nil when a split has none.

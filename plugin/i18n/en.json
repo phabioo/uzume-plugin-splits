@@ -89,5 +89,19 @@
   "store.failed.text": "The split list could not be stored. Your changes stay until the app closes.",
   "store.conflict.title": "Splits changed elsewhere",
   "store.conflict.text": "Another PC saved this split list first. Both versions are kept; the newer one is shown.",
-  "event.pb": "New personal best: {time}"
+  "event.pb": "New personal best: {time}",
+  "hud.sob": "Sum of best {time}",
+  "hud.cmp.best": "(vs best segments)",
+  "col.delta_best": "Delta (best)",
+  "stat.sob_gap": "Possible time save",
+  "edit.compare": "Comparison",
+  "compare.pb": "Personal best",
+  "compare.best": "Best segments",
+  "compare.hint": "Deltas are shown against this list's personal best or against the sum of the best segments. Missing best segments leave a split without a comparison.",
+  "edit.list_rules": "Start and reset rules",
+  "list_rules.start": "Start",
+  "list_rules.reset": "Reset",
+  "list_rules.hint": "Optional. A start rule starts the timer while it is idle, a reset rule resets it (like the reset key: a reset never saves a personal best). A condition that is already true waits for the next change. Off by default.",
+  "rule.title.start": "Start rule",
+  "rule.title.reset": "Reset rule"
 }

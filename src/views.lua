@@ -56,7 +56,16 @@ function M.hud(vm, T)
     if p.gold then label = label .. " " .. T("hud.gold") end
     kids[#kids + 1] = text({ id = "prev", text = label, style = "meta", tone = p.gold and "warning" or tone_of(p.delta) })
   end
+  if vm.sob then
+    local label = T("hud.sob", { time = fmt.time(vm.sob) })
+    if vm.compare == "best" then label = label .. " " .. T("hud.cmp.best") end
+    kids[#kids + 1] = text({ id = "sob", text = label, style = "meta" })
+  end
   return { type = "column", gap = 4, children = kids }
+end
+
+local function delta_col(vm, T)
+  return vm.compare == "best" and T("col.delta_best") or T("col.delta")
 end
 
 -- Panel --------------------------------------------------------------------------------------------------
@@ -122,7 +131,7 @@ function M.panel(vm, T)
   return { type = "column", gap = 12, children = {
     hud,
     controls(vm, T),
-    { type = "table", columns = { T("col.split"), T("col.time"), T("col.delta") }, rows = rows },
+    { type = "table", columns = { T("col.split"), T("col.time"), delta_col(vm, T) }, rows = rows },
   } }
 end
 
@@ -145,11 +154,12 @@ local function run_page(vm, T)
     } }
   end
   local kids = {
-    { type = "grid", gap = 12, columns = 4, children = {
+    { type = "grid", gap = 12, columns = 3, children = {
       stat("st_attempts", T("stat.attempts"), vm.attempts),
       stat("st_completed", T("stat.completed"), vm.completed),
       stat("st_pb", T("stat.pb"), vm.pb_total and fmt.time(vm.pb_total) or "-"),
       stat("st_sob", T("stat.sob"), vm.sob and fmt.time(vm.sob) or "-"),
+      stat("st_sob_gap", T("stat.sob_gap"), vm.sob_gap and fmt.time(vm.sob_gap) or "-"),
     } },
     controls(vm, T, true),
   }
@@ -157,7 +167,7 @@ local function run_page(vm, T)
     kids[#kids + 1] = { type = "empty", title = T("empty.no_splits.title"), text = T("empty.no_splits.text") }
   else
     kids[#kids + 1] = { type = "table",
-      columns = { T("col.split"), T("col.time"), T("col.delta"), T("col.pb"), T("col.best"), T("col.rule") },
+      columns = { T("col.split"), T("col.time"), delta_col(vm, T), T("col.pb"), T("col.best"), T("col.rule") },
       rows = rows }
   end
   return { type = "column", gap = 16, children = kids }
@@ -180,6 +190,8 @@ local function rule_section(ed, T)
   for _, s in ipairs(ed.list.splits) do
     if s.id == d.id then name = s.name end
   end
+  local title = T("rule.title", { name = name })
+  if d.id == "@start" then title = T("rule.title.start") elseif d.id == "@reset" then title = T("rule.title.reset") end
   local kids = {
     { type = "select", id = "rule_kind", action = "rule_kind", selected = d.kind, options = {
       opt("none", T("rule.kind.none")), opt("memory", T("rule.kind.memory")),
@@ -217,7 +229,7 @@ local function rule_section(ed, T)
     { type = "button", label = T("btn.save"), action = "rule_save", variant = "primary" },
     { type = "button", label = T("btn.cancel"), action = "rule_cancel", variant = "quiet" },
   } }
-  return { type = "section", id = "rule_editor", title = T("rule.title", { name = name }), children = kids }
+  return { type = "section", id = "rule_editor", title = title, children = kids }
 end
 
 local function edit_page(vm, T, ed)
@@ -231,6 +243,23 @@ local function edit_page(vm, T, ed)
     text({ text = T("timing.hint"), style = "meta" }),
     { type = "select", id = "fps", action = "fps", selected = fps_value(list.fps), options = fps_opts },
     text({ text = T("fps.hint"), style = "meta" }),
+  } }
+
+  kids[#kids + 1] = { type = "section", title = T("edit.compare"), children = {
+    { type = "segmented", id = "compare", action = "compare", selected = list.compare or "pb", options = {
+      opt("pb", T("compare.pb")), opt("best", T("compare.best")) } },
+    text({ text = T("compare.hint"), style = "meta" }),
+  } }
+  local function list_rule_row(id, label, rule)
+    return { type = "row", gap = 8, align = "center", children = {
+      text({ text = label, style = "body" }),
+      { type = "button", id = "rule_btn_" .. id, label = rules.summary(rule) or T("btn.rule"), action = "rule_edit",
+        value = "@" .. id, variant = rule and "secondary" or "quiet" } } }
+  end
+  kids[#kids + 1] = { type = "section", id = "list_rules", title = T("edit.list_rules"), children = {
+    text({ text = T("list_rules.hint"), style = "meta" }),
+    list_rule_row("start", T("list_rules.start"), list.start_rule),
+    list_rule_row("reset", T("list_rules.reset"), list.reset_rule),
   } }
 
   local rows = {}
