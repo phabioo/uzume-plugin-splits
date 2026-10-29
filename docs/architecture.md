@@ -22,7 +22,7 @@ At a glance: Lua modules in `src/` are bundled into `plugin/main.lua`. A pure co
 
 ## Data
 
-One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`uz.store`, permission `store`). Value: `{ v = 1, timing, fps, next_id, attempts, completed, splits = { { id, name, rule? } }, sets = { game = {...}, real = {...} } }` where a set is `{ pb = { total, times = { [split id] = cumulative ms } }, golds = { [split id] = ms } }`. Game time and real time keep separate sets. Times are keyed by split id, so renaming and reordering keep them; deleting a split removes its times. A stale write (another PC saved first) is refused by the store; the plugin tells the user and shows the stored version, the attempted one stays as a store conflict. Without a game (shell context) nothing is stored and the screen shows an empty state.
+One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`uz.store`, permission `store`). Value: `{ v = 1, timing, fps, compare?, start_rule?, reset_rule?, next_id, attempts, completed, splits = { { id, name, rule? } }, sets = { game = {...}, real = {...} } }` where a set is `{ pb = { total, times = { [split id] = cumulative ms } }, golds = { [split id] = ms } }`. Game time and real time keep separate sets. Times are keyed by split id, so renaming and reordering keep them; deleting a split removes its times. A stale write (another PC saved first) is refused by the store; the plugin tells the user and shows the stored version, the attempted one stays as a store conflict. Without a game (shell context) nothing is stored and the screen shows an empty state.
 
 ## Timing rules
 
@@ -31,6 +31,10 @@ One store key per game: `splits.<game code, lower case, [a-z0-9_.-]>` (`uz.store
 - A split records the cumulative time. Skipping a split records none; the segment after a skip would span several splits and so gives no best segment. The last split cannot be skipped.
 - Best segments of an attempt are saved on finish and on reset; the personal best only when a finished run is faster (equal is not better). Undo after the finish restores the previous personal best and run count.
 - Splits can be added, moved and deleted only while the timer is idle or finished; renaming and rules can change any time.
+
+## Comparison
+
+`compare` is `pb` (default) or `best` per list (Edit tab). Deltas (HUD, panel, run tab) are against the personal best's cumulative times, or against the cumulative sum of the best segments. A split after the first one without a best segment has no comparison and no delta. "Sum of best" is shown in the HUD and run tab with its gap to the personal best ("Possible time save"); it is empty while any split lacks a best segment. A finished run's delta is against the old personal best, or against the sum of best from before the run.
 
 ## Hotkeys
 
@@ -44,6 +48,10 @@ A split has an optional rule, evaluated only for the current split of a running 
 - `location`: fires on the event `location.changed` of `uzume.soullink-core` when `zone` matches. The id comes from the game; names shown in the editor are only those the event carried in this session. "Use current zone" copies the last seen zone.
 - `badge`: fires on the event `badges.changed` `{ count, new }` of `uzume.soullink-core` (soullink-core 0.6.1 or later) when `new` contains N. No `uz.call`, so no `requires` is needed.
 
+## Start and reset rules
+
+Optional, off by default, list-wide (`start_rule`, `reset_rule`; same rule format as the autosplit rules, edited in the Edit tab next to the comparison). The start rule is armed while the timer is idle and the list has splits, the reset rule while an attempt is running, paused or finished. Memory rules use the autosplit evaluator with their own watches (`start`, `reset`) and the same edge logic (a condition already true waits for the next change); location and badge rules fire on the soullink-core events. A reset through the rule is the normal reset: best segments of the attempt count, a personal best is never saved.
+
 ## Text format
 
 ```
@@ -51,6 +59,8 @@ A split has an optional rule, evaluated only for the current split of a running 
 @timing game            header lines: @timing (game|real), @fps, @attempts, @completed, @pb (total ms)
 Name | rule | PB | best segment
 ```
+
+Headers also: `@compare pb|best`, `@start <rule>`, `@reset <rule>` (written only when set).
 
 `rule`: `-`, `mem 0x02000000 u8 = 5`, `mem 0x02000000 u16 changed`, `badge 3`, `zone 123`. `PB` is the cumulative time of the split in the personal best run, `best segment` the gold, both in ms or `-`. A line without `|` is just a name. Names cannot contain `|` (replaced by `/`). Export writes the active timing method; import replaces the whole list (after a confirm) and is refused while the timer runs.
 

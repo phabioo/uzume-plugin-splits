@@ -1,7 +1,8 @@
 -- Text format for exporting and importing a split list (shown in a textarea).
 --
 --   # comment
---   @timing game          header lines: @timing (game|real), @fps, @attempts, @completed, @pb (total, ms)
+--   @timing game          header lines: @timing (game|real), @fps, @attempts, @completed, @pb (total, ms),
+--                         @compare (pb|best), @start <rule>, @reset <rule> (rule syntax as below)
 --   Name | rule | PB | best segment
 --
 -- rule: "-" (none), "mem <addr> <u8|u16|u32> <cmp> [value]", "badge <1..8>", "zone <id>"
@@ -66,6 +67,9 @@ function M.export(list)
   out[#out + 1] = "@attempts " .. list.attempts
   out[#out + 1] = "@completed " .. list.completed
   if set.pb then out[#out + 1] = "@pb " .. set.pb.total end
+  if list.compare == "best" then out[#out + 1] = "@compare best" end
+  if list.start_rule then out[#out + 1] = "@start " .. M.rule_to_text(list.start_rule) end
+  if list.reset_rule then out[#out + 1] = "@reset " .. M.rule_to_text(list.reset_rule) end
   for _, s in ipairs(list.splits) do
     local pb = set.pb and set.pb.times[s.id]
     local gold = set.golds[s.id]
@@ -87,6 +91,7 @@ end
 --- The list keeps `base` timing/fps defaults (a table { timing, fps }) unless the text sets them.
 function M.import(text, base)
   local list = model.new_list(base and base.timing or "game", base and base.fps or 60)
+  list.compare = base and base.compare == "best" and "best" or "pb"
   local set = { golds = {} }
   local pb_total
   local line_no = 0
@@ -109,6 +114,13 @@ function M.import(text, base)
           local n = toint(val)
           if not n or n < 0 then return nil, "number", line_no end
           list[key] = n
+        elseif key == "compare" then
+          if val ~= "pb" and val ~= "best" then return nil, "header", line_no end
+          list.compare = val
+        elseif key == "start" or key == "reset" then
+          local ok, rule = M.parse_rule(val)
+          if not ok then return nil, "rule", line_no end
+          list[key .. "_rule"] = rule
         elseif key == "pb" then
           local n = toint(val)
           if not n or n <= 0 then return nil, "number", line_no end

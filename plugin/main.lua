@@ -87,6 +87,7 @@ function App:load()
   end
   self.rev = rev
   self.list = model.sanitize(value) or model.new_list("game", default_fps(self.uz.game.system))
+  self:arm_aux()
 end
 
 function App:save()
@@ -149,6 +150,7 @@ end
 -- Timer actions -------------------------------------------------------------------------------------------
 
 function App:arm()
+  self:arm_aux()
   if self.timer.state ~= "running" or not self.att then
     rules.disarm(self.uz)
     self.rule_state = nil
@@ -156,6 +158,69 @@ function App:arm()
   end
   local split = self.list.splits[model.current_index(self.att)]
   self.rule_state = rules.arm(self.uz, split and split.rule)
+end
+
+-- Start and reset rules (list-wide, optional, off by default). The start rule is armed while the timer is idle,
+-- the reset rule while an attempt is running, paused or finished. Both use the autosplit rule evaluator, each
+-- with its own memory watch ("start" / "reset"). A reset through the rule is an ordinary reset: best segments
+-- of the attempt count, the personal best is never saved.
+local AUX = { "start", "reset" }
+
+--- The rule of `which` that is active in the current timer state (nil when none).
+function App:aux_rule(which)
+  local list = self.list
+  if not list then return nil end
+  local state = self.timer.state
+  if which == "start" then
+    return state == "idle" and #list.splits > 0 and list.start_rule or nil
+  end
+  return state ~= "idle" and list.reset_rule or nil
+end
+
+function App:arm_aux()
+  self.aux = self.aux or {}
+  for _, which in ipairs(AUX) do
+    local rule = self:aux_rule(which)
+    local cur = self.aux[which]
+    if not rule then
+      rules.disarm(self.uz, which)
+      self.aux[which] = nil
+    elseif not cur or cur.rule ~= rule then
+      self.aux[which] = rules.arm(self.uz, rule, which) -- same rule table: keep the baseline
+    end
+  end
+end
+
+function App:fire_aux(which)
+  if which == "start" then
+    if self.timer.state == "idle" then self:start_run() end
+  else
+    self:reset()
+  end
+end
+
+--- Evaluates the memory start / reset rules for one tick. Returns true when one fired and was applied.
+function App:aux_tick()
+  for _, which in ipairs({ "reset", "start" }) do
+    local st = self.aux and self.aux[which]
+    if st and st.rule.kind == "memory" and self:aux_rule(which) == st.rule and rules.step_memory(self.uz, st) then
+      self:fire_aux(which)
+      return true
+    end
+  end
+  return false
+end
+
+--- Start / reset rules of the event kinds "location" and "badge". `matches(rule)` decides. True when one fired.
+function App:aux_event(kind, matches)
+  for _, which in ipairs({ "reset", "start" }) do
+    local rule = self:aux_rule(which)
+    if rule and rule.kind == kind and matches(rule) then
+      self:fire_aux(which)
+      return true
+    end
+  end
+  return false
 end
 
 function App:start_run()
@@ -183,10 +248,11 @@ end
 function App:finish()
   local list, att = self.list, self.att
   local set = model.set(list)
+  local old_sob = model.sum_of_best(list)
   self.backup = { pb = util.copy(set.pb), golds = util.copy(set.golds), completed = list.completed }
   self.timer:stop(self:frame(), self.uz.clock())
   local info = model.commit(list, att, true)
-  self.result = { total = info.total, old_total = info.old_total, pb = info.pb }
+  self.result = { total = info.total, old_total = info.old_total, pb = info.pb, old_sob = old_sob }
   self:save()
   self:arm()
   if info.pb then self:post_pb(info) end
@@ -279,6 +345,10 @@ function App:on_location(v)
   if type(v) ~= "table" or math.type(v.zone) ~= "integer" then return end
   self.last_zone = v.zone
   if type(v.name) == "string" and v.name ~= "" then self.names_seen[v.zone] = v.name end
+  if self:aux_event("location", function(r) return r.zone == v.zone end) then
+    self:render_all()
+    return
+  end
   local rule = self:current_rule()
   if rule and rule.kind == "location" and rule.zone == v.zone then
     self:do_split()
@@ -288,6 +358,16 @@ end
 
 function App:on_badges(v)
   if type(v) ~= "table" or type(v.new) ~= "table" then return end
+  local function has(n)
+    for _, x in pairs(v.new) do
+      if x == n then return true end
+    end
+    return false
+  end
+  if self:aux_event("badge", function(r) return has(r.n) end) then
+    self:render_all()
+    return
+  end
   local rule = self:current_rule()
   if not rule or rule.kind ~= "badge" then return end
   for _, n in pairs(v.new) do
@@ -315,7 +395,9 @@ function App:tick(frame)
   self.ticks = self.ticks + 1
   self.timer:update(frame, self.uz.clock())
   local changed = false
-  if self.timer.state == "running" and self:autosplit() then
+  if self:aux_tick() then
+    changed = true
+  elseif self.timer.state == "running" and self:autosplit() then
     self:do_split()
     changed = true
   end
@@ -343,6 +425,10 @@ function App:vm()
   vm.attempts, vm.completed = list.attempts, list.completed
   vm.pb_total = set.pb and set.pb.total or nil
   vm.sob = model.sum_of_best(list)
+  vm.compare = list.compare == "best" and "best" or "pb"
+  vm.cmp_total = model.comparison_total(list)
+  if vm.sob and vm.pb_total then vm.sob_gap = vm.pb_total - vm.sob end
+  local cmp_times = model.comparison(list)
   vm.result = self.result
   local results = att and att.results or {}
   local active = vm.state == "running" or vm.state == "paused"
@@ -352,21 +438,23 @@ function App:vm()
     local r = results[i]
     local row = { id = s.id, name = s.name, current = active and i == cur, skipped = r and r.skipped or false,
       time = r and r.time or nil, pb = set.pb and set.pb.times[s.id] or nil, gold = set.golds[s.id],
-      rule_text = rules.summary(s.rule) }
-    if row.time and row.pb then row.delta = row.time - row.pb end
+      cmp = cmp_times[s.id], rule_text = rules.summary(s.rule) }
+    if row.time and row.cmp then row.delta = row.time - row.cmp end
     if row.time then last_done = i end
     vm.rows[#vm.rows + 1] = row
   end
   if active and list.splits[cur] then
     vm.cur_name = list.splits[cur].name
-    local pbc = vm.rows[cur].pb
+    local pbc = vm.rows[cur].cmp
     if pbc and vm.main_ms > pbc then
       vm.delta = vm.main_ms - pbc
     elseif last_done then
       vm.delta = vm.rows[last_done].delta
     end
-  elseif vm.state == "finished" and self.result and self.result.old_total then
-    vm.delta = self.result.total - self.result.old_total
+  elseif vm.state == "finished" and self.result then
+    local old
+    if vm.compare == "best" then old = self.result.old_sob else old = self.result.old_total end
+    if old then vm.delta = self.result.total - old end
   end
   if last_done then
     vm.prev = { name = vm.rows[last_done].name, seg = model.segments(list, att)[last_done],
@@ -452,13 +540,20 @@ local function mutate(self, fn)
   return ok ~= false
 end
 
+local LIST_RULE = { ["@start"] = "start_rule", ["@reset"] = "reset_rule" }
+
 local function new_draft(self, id)
-  local split
-  for _, s in ipairs(self.list.splits) do
-    if s.id == id then split = s end
+  local split, r
+  if LIST_RULE[id] then
+    split = {}
+    r = self.list[LIST_RULE[id]]
+  else
+    for _, s in ipairs(self.list.splits) do
+      if s.id == id then split = s end
+    end
+    if not split then return nil end
+    r = split.rule
   end
-  if not split then return nil end
-  local r = split.rule
   local d = { id = id, kind = "none", size = "u8", cmp = "=" }
   if r then
     d.kind = r.kind
@@ -523,6 +618,10 @@ end
 function H.timing(self, v)
   if structure_locked(self) or (v ~= "game" and v ~= "real") then return end
   mutate(self, function(l) l.timing = v end)
+end
+function H.compare(self, v)
+  if v ~= "pb" and v ~= "best" then return end
+  mutate(self, function(l) l.compare = v end)
 end
 function H.fps(self, v)
   local n = tonumber(v)
@@ -597,8 +696,13 @@ function H.rule_save(self)
     d.error = rule
     return
   end
-  mutate(self, function(l) return model.set_rule(l, d.id, rule) end)
+  if LIST_RULE[d.id] then
+    mutate(self, function(l) return model.set_list_rule(l, LIST_RULE[d.id], rule) end)
+  else
+    mutate(self, function(l) return model.set_rule(l, d.id, rule) end)
+  end
   self.draft = nil
+  self:arm_aux()
   if self.timer.state == "running" then self:arm() end
 end
 function H.rule_cancel(self) self.draft = nil end
@@ -609,7 +713,7 @@ end
 function H.export_view() end
 function H.import_apply(self)
   if structure_locked(self) or not self.list then return end
-  local list, code, line = textio.import(self.import_text or "", { timing = self.list.timing, fps = self.list.fps })
+  local list, code, line = textio.import(self.import_text or "", { timing = self.list.timing, fps = self.list.fps, compare = self.list.compare })
   if not list then
     self.import_error = self.T("import.err." .. code, { line = line })
     return
@@ -620,6 +724,7 @@ function H.import_apply(self)
   self.att, self.result, self.backup = nil, nil, nil
   self.draft, self.import_error = nil, nil
   self:save()
+  self:arm() -- re-arms the start / reset watches for the imported rules
   self.tab = 2
 end
 
@@ -698,6 +803,7 @@ __mod["model"] = function(...)
 -- Split list, personal best, best segments and one attempt. Pure data logic, no uz.
 --
 -- list = { v = 1, timing = "game"|"real", fps = number, next_id = n, attempts = n, completed = n,
+--          compare = "pb"|"best" (comparison for deltas, default "pb"), start_rule? / reset_rule? (same format as a split rule),
 --          splits = { { id, name, rule? }, ... },
 --          sets = { game = { pb = { total, times = { [id] = cumulative ms } }, golds = { [id] = ms } }, real = {...} } }
 -- Times are per timing method, so switching between game and real time never mixes them.
@@ -717,7 +823,7 @@ local function is_int(v) return math.type(v) == "integer" end
 
 function M.new_list(timing, fps)
   return { v = 1, timing = timing or "game", fps = fps or 60, next_id = 1, attempts = 0, completed = 0,
-           splits = {}, sets = {} }
+           compare = "pb", splits = {}, sets = {} }
 end
 
 --- The data set of the active timing method (created on demand).
@@ -769,6 +875,11 @@ function M.sanitize(v)
   local timing = v.timing == "real" and "real" or "game"
   local fps = type(v.fps) == "number" and v.fps >= 1 and v.fps <= 240 and v.fps or 60
   local list = M.new_list(timing, fps)
+  list.compare = v.compare == "best" and "best" or "pb"
+  for _, key in ipairs({ "start_rule", "reset_rule" }) do
+    local ok, rule = M.normalize_rule(v[key])
+    list[key] = ok and rule or nil
+  end
   local seen = {}
   for _, s in ipairs(v.splits) do
     if type(s) == "table" and type(s.id) == "string" and not seen[s.id] and #list.splits < M.MAX_SPLITS then
@@ -922,6 +1033,41 @@ function M.is_gold(list, att, i)
   return best == nil or seg < best
 end
 
+--- Cumulative best-segment time per split id (sum of the golds up to and including it). The map ends at the first
+--- split without a best segment, because later cumulative times would be unknown.
+function M.best_cumulative(list)
+  local golds, out, total = M.set(list).golds, {}, 0
+  for _, s in ipairs(list.splits) do
+    if not golds[s.id] then break end
+    total = total + golds[s.id]
+    out[s.id] = total
+  end
+  return out
+end
+
+--- Cumulative times (by split id) the attempt is compared against: personal best (default) or best segments.
+function M.comparison(list)
+  if list.compare == "best" then return M.best_cumulative(list) end
+  local pb = M.set(list).pb
+  return pb and pb.times or {}
+end
+
+--- Total of the comparison: PB total or sum of best; nil when unknown.
+function M.comparison_total(list)
+  if list.compare == "best" then return M.sum_of_best(list) end
+  local pb = M.set(list).pb
+  return pb and pb.total or nil
+end
+
+--- Sets (or clears with nil) the list-wide "start_rule" / "reset_rule". Returns true, or false for a bad rule.
+function M.set_list_rule(list, which, rule)
+  if which ~= "start_rule" and which ~= "reset_rule" then return false end
+  local ok, norm = M.normalize_rule(rule)
+  if not ok then return false end
+  list[which] = norm
+  return true
+end
+
 --- Sum of the best segments, or nil when a split has none.
 function M.sum_of_best(list)
   if #list.splits == 0 then return nil end
@@ -990,21 +1136,23 @@ function M.compare(op, a, b)
 end
 
 --- Starts watching for `rule` (nil = no rule). Returns the evaluation state, or nil without a rule.
-function M.arm(uz, rule)
+--- `key` is the watch key ("rule" for the autosplit rule of the current split, "start" / "reset" for the list rules).
+function M.arm(uz, rule, key)
+  key = key or "rule"
   if not rule then
-    uz.memory.unwatch("rule")
+    uz.memory.unwatch(key)
     return nil
   end
   if rule.kind == "memory" then
-    uz.memory.watch("rule", rule.addr, model.SIZES[rule.size])
+    uz.memory.watch(key, rule.addr, model.SIZES[rule.size])
   else
-    uz.memory.unwatch("rule")
+    uz.memory.unwatch(key)
   end
   return { rule = rule }
 end
 
-function M.disarm(uz)
-  uz.memory.unwatch("rule")
+function M.disarm(uz, key)
+  uz.memory.unwatch(key or "rule")
 end
 
 --- Feeds a boolean condition; true exactly once, on the change from false to true after the baseline.
@@ -1057,7 +1205,8 @@ __mod["textio"] = function(...)
 -- Text format for exporting and importing a split list (shown in a textarea).
 --
 --   # comment
---   @timing game          header lines: @timing (game|real), @fps, @attempts, @completed, @pb (total, ms)
+--   @timing game          header lines: @timing (game|real), @fps, @attempts, @completed, @pb (total, ms),
+--                         @compare (pb|best), @start <rule>, @reset <rule> (rule syntax as below)
 --   Name | rule | PB | best segment
 --
 -- rule: "-" (none), "mem <addr> <u8|u16|u32> <cmp> [value]", "badge <1..8>", "zone <id>"
@@ -1122,6 +1271,9 @@ function M.export(list)
   out[#out + 1] = "@attempts " .. list.attempts
   out[#out + 1] = "@completed " .. list.completed
   if set.pb then out[#out + 1] = "@pb " .. set.pb.total end
+  if list.compare == "best" then out[#out + 1] = "@compare best" end
+  if list.start_rule then out[#out + 1] = "@start " .. M.rule_to_text(list.start_rule) end
+  if list.reset_rule then out[#out + 1] = "@reset " .. M.rule_to_text(list.reset_rule) end
   for _, s in ipairs(list.splits) do
     local pb = set.pb and set.pb.times[s.id]
     local gold = set.golds[s.id]
@@ -1143,6 +1295,7 @@ end
 --- The list keeps `base` timing/fps defaults (a table { timing, fps }) unless the text sets them.
 function M.import(text, base)
   local list = model.new_list(base and base.timing or "game", base and base.fps or 60)
+  list.compare = base and base.compare == "best" and "best" or "pb"
   local set = { golds = {} }
   local pb_total
   local line_no = 0
@@ -1165,6 +1318,13 @@ function M.import(text, base)
           local n = toint(val)
           if not n or n < 0 then return nil, "number", line_no end
           list[key] = n
+        elseif key == "compare" then
+          if val ~= "pb" and val ~= "best" then return nil, "header", line_no end
+          list.compare = val
+        elseif key == "start" or key == "reset" then
+          local ok, rule = M.parse_rule(val)
+          if not ok then return nil, "rule", line_no end
+          list[key .. "_rule"] = rule
         elseif key == "pb" then
           local n = toint(val)
           if not n or n <= 0 then return nil, "number", line_no end
@@ -1408,7 +1568,16 @@ function M.hud(vm, T)
     if p.gold then label = label .. " " .. T("hud.gold") end
     kids[#kids + 1] = text({ id = "prev", text = label, style = "meta", tone = p.gold and "warning" or tone_of(p.delta) })
   end
+  if vm.sob then
+    local label = T("hud.sob", { time = fmt.time(vm.sob) })
+    if vm.compare == "best" then label = label .. " " .. T("hud.cmp.best") end
+    kids[#kids + 1] = text({ id = "sob", text = label, style = "meta" })
+  end
   return { type = "column", gap = 4, children = kids }
+end
+
+local function delta_col(vm, T)
+  return vm.compare == "best" and T("col.delta_best") or T("col.delta")
 end
 
 -- Panel --------------------------------------------------------------------------------------------------
@@ -1474,7 +1643,7 @@ function M.panel(vm, T)
   return { type = "column", gap = 12, children = {
     hud,
     controls(vm, T),
-    { type = "table", columns = { T("col.split"), T("col.time"), T("col.delta") }, rows = rows },
+    { type = "table", columns = { T("col.split"), T("col.time"), delta_col(vm, T) }, rows = rows },
   } }
 end
 
@@ -1497,11 +1666,12 @@ local function run_page(vm, T)
     } }
   end
   local kids = {
-    { type = "grid", gap = 12, columns = 4, children = {
+    { type = "grid", gap = 12, columns = 3, children = {
       stat("st_attempts", T("stat.attempts"), vm.attempts),
       stat("st_completed", T("stat.completed"), vm.completed),
       stat("st_pb", T("stat.pb"), vm.pb_total and fmt.time(vm.pb_total) or "-"),
       stat("st_sob", T("stat.sob"), vm.sob and fmt.time(vm.sob) or "-"),
+      stat("st_sob_gap", T("stat.sob_gap"), vm.sob_gap and fmt.time(vm.sob_gap) or "-"),
     } },
     controls(vm, T, true),
   }
@@ -1509,7 +1679,7 @@ local function run_page(vm, T)
     kids[#kids + 1] = { type = "empty", title = T("empty.no_splits.title"), text = T("empty.no_splits.text") }
   else
     kids[#kids + 1] = { type = "table",
-      columns = { T("col.split"), T("col.time"), T("col.delta"), T("col.pb"), T("col.best"), T("col.rule") },
+      columns = { T("col.split"), T("col.time"), delta_col(vm, T), T("col.pb"), T("col.best"), T("col.rule") },
       rows = rows }
   end
   return { type = "column", gap = 16, children = kids }
@@ -1532,6 +1702,8 @@ local function rule_section(ed, T)
   for _, s in ipairs(ed.list.splits) do
     if s.id == d.id then name = s.name end
   end
+  local title = T("rule.title", { name = name })
+  if d.id == "@start" then title = T("rule.title.start") elseif d.id == "@reset" then title = T("rule.title.reset") end
   local kids = {
     { type = "select", id = "rule_kind", action = "rule_kind", selected = d.kind, options = {
       opt("none", T("rule.kind.none")), opt("memory", T("rule.kind.memory")),
@@ -1569,7 +1741,7 @@ local function rule_section(ed, T)
     { type = "button", label = T("btn.save"), action = "rule_save", variant = "primary" },
     { type = "button", label = T("btn.cancel"), action = "rule_cancel", variant = "quiet" },
   } }
-  return { type = "section", id = "rule_editor", title = T("rule.title", { name = name }), children = kids }
+  return { type = "section", id = "rule_editor", title = title, children = kids }
 end
 
 local function edit_page(vm, T, ed)
@@ -1583,6 +1755,23 @@ local function edit_page(vm, T, ed)
     text({ text = T("timing.hint"), style = "meta" }),
     { type = "select", id = "fps", action = "fps", selected = fps_value(list.fps), options = fps_opts },
     text({ text = T("fps.hint"), style = "meta" }),
+  } }
+
+  kids[#kids + 1] = { type = "section", title = T("edit.compare"), children = {
+    { type = "segmented", id = "compare", action = "compare", selected = list.compare or "pb", options = {
+      opt("pb", T("compare.pb")), opt("best", T("compare.best")) } },
+    text({ text = T("compare.hint"), style = "meta" }),
+  } }
+  local function list_rule_row(id, label, rule)
+    return { type = "row", gap = 8, align = "center", children = {
+      text({ text = label, style = "body" }),
+      { type = "button", id = "rule_btn_" .. id, label = rules.summary(rule) or T("btn.rule"), action = "rule_edit",
+        value = "@" .. id, variant = rule and "secondary" or "quiet" } } }
+  end
+  kids[#kids + 1] = { type = "section", id = "list_rules", title = T("edit.list_rules"), children = {
+    text({ text = T("list_rules.hint"), style = "meta" }),
+    list_rule_row("start", T("list_rules.start"), list.start_rule),
+    list_rule_row("reset", T("list_rules.reset"), list.reset_rule),
   } }
 
   local rows = {}
