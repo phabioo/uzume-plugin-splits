@@ -689,3 +689,29 @@ t.case("start and reset rules show in the editor and every tree validates", func
   t.eq(ui_validator.find(mock.ui.trees.screen, "rule_btn_reset").label, "zone 12")
   t.eq(stored(mock).reset_rule, { kind = "location", zone = 12 })
 end)
+
+t.case("import arms the imported start rule and drops the old one", function()
+  local mock, app = H.boot({ names = { "A" }, memory = { { addr = 0x3000, data = "\0" } } })
+  mock.action("import_text", "@start mem 0x3000 u8 = 1\nA\nB")
+  mock.action("import_apply")
+  t.eq(mock.watches.start, { addr = 0x3000, len = 1 })
+  mock.tick(1, 2) -- baseline
+  mock.poke(0x3000, 1, 1)
+  mock.tick(1, 2)
+  t.eq(state(app), "running")
+  mock.hotkey("reset")
+  mock.action("import_text", "A\nB")
+  mock.action("import_apply")
+  t.eq(mock.watches.start, nil)
+end)
+
+t.case("finished delta with comparison best and unknown sum of best stays unset", function()
+  local list = H.list({ "A", "B" })
+  list.compare = "best"
+  model.set(list).pb = { total = 3000, times = { [list.splits[1].id] = 1000, [list.splits[2].id] = 3000 } }
+  local mock, app = H.boot({ store = { [H.KEY] = list } })
+  mock.hotkey("split"); mock.tick(10, 2); mock.hotkey("split"); mock.hotkey("split")
+  t.eq(state(app), "finished")
+  t.eq(app.result.old_sob, nil)
+  t.eq(app:vm().delta, nil)
+end)

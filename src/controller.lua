@@ -433,7 +433,8 @@ function App:vm()
       vm.delta = vm.rows[last_done].delta
     end
   elseif vm.state == "finished" and self.result then
-    local old = vm.compare == "best" and self.result.old_sob or self.result.old_total
+    local old
+    if vm.compare == "best" then old = self.result.old_sob else old = self.result.old_total end
     if old then vm.delta = self.result.total - old end
   end
   if last_done then
@@ -704,6 +705,7 @@ function H.import_apply(self)
   self.att, self.result, self.backup = nil, nil, nil
   self.draft, self.import_error = nil, nil
   self:save()
+  self:arm() -- re-arms the start / reset watches for the imported rules
   self.tab = 2
 end
 
